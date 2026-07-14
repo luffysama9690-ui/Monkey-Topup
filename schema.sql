@@ -33,6 +33,11 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Added later: lets a customer attach a transfer screenshot when paying for
+-- an order directly (instead of from wallet balance). Safe to run again —
+-- it's a no-op if the column already exists.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS screenshot_url TEXT;
+
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY,
   telegram_id BIGINT NOT NULL REFERENCES users(telegram_id),
