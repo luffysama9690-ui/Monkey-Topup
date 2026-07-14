@@ -1,0 +1,17 @@
+{
+  "name": "monkey-topup-backend",
+  "version": "1.0.0",
+  "description": "Backend API for the Monkey Topup Telegram Mini App",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "migrate": "node migrate.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}
