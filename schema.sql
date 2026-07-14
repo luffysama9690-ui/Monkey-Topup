@@ -38,6 +38,17 @@ CREATE TABLE IF NOT EXISTS orders (
 -- it's a no-op if the column already exists.
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS screenshot_url TEXT;
 
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  telegram_id BIGINT UNIQUE NOT NULL,
+  username TEXT,
+  balance_mmk BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Added later: THB wallet balance, separate from MMK. Safe to re-run.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS balance_thb BIGINT NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY,
   telegram_id BIGINT NOT NULL REFERENCES users(telegram_id),
