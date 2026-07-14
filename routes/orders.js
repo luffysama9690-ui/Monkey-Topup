@@ -1,6 +1,6 @@
 const express = require("express");
 const pool = require("../db");
-const { notifyAdmin } = require("./telegram");
+const { notifyAdmin } = require("../telegram");
 
 const router = express.Router();
 
