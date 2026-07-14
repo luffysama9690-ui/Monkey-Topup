@@ -81,13 +81,13 @@ router.patch("/:id/status", async (req, res) => {
     const deposit = dep.rows[0];
     await client.query("UPDATE deposits SET status = $1 WHERE id = $2", [status, req.params.id]);
 
-    if (status === "success" && deposit.currency === "mmk") {
-      await client.query("UPDATE users SET balance_mmk = balance_mmk + $1 WHERE telegram_id = $2", [
-        deposit.amount,
-        deposit.telegram_id,
-      ]);
-    }
-
+    if (status === "success") {
+  const balanceColumn = deposit.currency === "mmk" ? "balance_mmk" : "balance_thb";
+  await client.query(
+    `UPDATE users SET ${balanceColumn} = ${balanceColumn} + $1 WHERE telegram_id = $2`,
+    [deposit.amount, deposit.telegram_id]
+  );
+}
     await client.query("COMMIT");
     res.json({ ok: true });
   } catch (err) {
