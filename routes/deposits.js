@@ -1,5 +1,6 @@
 const express = require("express");
 const pool = require("../db");
+const { notifyAdmin } = require("../telegram");
 
 const router = express.Router();
 
@@ -22,6 +23,7 @@ router.post("/", async (req, res) => {
        VALUES ($1, $2, $3, $4, 'pending') RETURNING *`,
       [telegramId, amount, currency, screenshotUrl || null]
     );
+    const deposit = result.rows[0];
 
     await pool.query(
       `INSERT INTO messages (telegram_id, text, icon)
@@ -29,7 +31,15 @@ router.post("/", async (req, res) => {
       [telegramId, `ငွေဖြည့်သွင်းမှု ${amount} ${currency.toUpperCase()} တင်ပြီးပါပြီ`]
     );
 
-    res.status(201).json(result.rows[0]);
+    notifyAdmin(
+      `💰 <b>New deposit request</b>\n` +
+        `Deposit ID: #${deposit.id}\n` +
+        `Telegram ID: ${telegramId}\n` +
+        `Amount: ${amount} ${currency.toUpperCase()}\n` +
+        (screenshotUrl ? `Screenshot: ${screenshotUrl}` : "Screenshot: (none)")
+    );
+
+    res.status(201).json(deposit);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to create deposit" });

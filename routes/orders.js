@@ -1,5 +1,6 @@
 const express = require("express");
 const pool = require("../db");
+const { notifyAdmin } = require("../telegram");
 
 const router = express.Router();
 
@@ -46,6 +47,18 @@ router.post("/", async (req, res) => {
     );
 
     await client.query("COMMIT");
+
+    notifyAdmin(
+      `🛒 <b>New order</b>\n` +
+        `Order ID: #${orderRes.rows[0].id}\n` +
+        `Telegram ID: ${telegramId}\n` +
+        `Item: ${item}${gameId ? ` (GameID: ${gameId}${serverId ? ` / ${serverId}` : ""})` : ""}\n` +
+        `Qty: ${qty || 1}\n` +
+        `Price: ${price} ${currency.toUpperCase()}\n` +
+        `Pay method: ${payMethod}` +
+        (screenshotUrl ? `\nScreenshot: ${screenshotUrl}` : "")
+    );
+
     res.status(201).json(orderRes.rows[0]);
   } catch (err) {
     await client.query("ROLLBACK");
