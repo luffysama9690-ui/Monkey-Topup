@@ -4,11 +4,11 @@ const pool = require("../db");
 const router = express.Router();
 
 // POST /api/orders
-// body: { telegramId, game, item, gameId, serverId, qty, price, currency, payMethod }
+// body: { telegramId, game, item, gameId, serverId, qty, price, currency, payMethod, screenshotUrl }
 // Creates an order. If paying from wallet balance (MMK only), the balance is
 // deducted here, inside a transaction, so it can never go negative.
 router.post("/", async (req, res) => {
-  const { telegramId, game, item, gameId, serverId, qty, price, currency, payMethod } = req.body;
+  const { telegramId, game, item, gameId, serverId, qty, price, currency, payMethod, screenshotUrl } = req.body;
 
   if (!telegramId || !game || !item || !price || !currency) {
     return res.status(400).json({ error: "telegramId, game, item, price, and currency are required" });
@@ -34,9 +34,9 @@ router.post("/", async (req, res) => {
     }
 
     const orderRes = await client.query(
-      `INSERT INTO orders (telegram_id, game, item, game_id, server_id, qty, price, currency, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'success') RETURNING *`,
-      [telegramId, game, item, gameId || null, serverId || null, qty || 1, price, currency]
+      `INSERT INTO orders (telegram_id, game, item, game_id, server_id, qty, price, currency, status, screenshot_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'success', $9) RETURNING *`,
+      [telegramId, game, item, gameId || null, serverId || null, qty || 1, price, currency, screenshotUrl || null]
     );
 
     await client.query(
