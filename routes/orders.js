@@ -6,7 +6,7 @@ const router = express.Router();
 
 // POST /api/orders
 // body: { telegramId, game, item, gameId, serverId, qty, price, currency, payMethod, screenshotUrl }
-// Creates an order. If paying from wallet balance (MMK only), the balance is
+// Creates an order. If paying from wallet balance (MMK or THB), the balance is
 // deducted here, inside a transaction, so it can never go negative.
 router.post("/", async (req, res) => {
   const { telegramId, game, item, gameId, serverId, qty, price, currency, payMethod, screenshotUrl } = req.body;
@@ -19,19 +19,21 @@ router.post("/", async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    if (payMethod === "wallet" && currency === "mmk") {
-      const userRes = await client.query("SELECT balance_mmk FROM users WHERE telegram_id = $1 FOR UPDATE", [
-        telegramId,
-      ]);
-      const balance = userRes.rows[0]?.balance_mmk ?? 0;
+    if (payMethod === "wallet") {
+      const balanceColumn = currency === "mmk" ? "balance_mmk" : "balance_thb";
+      const userRes = await client.query(
+        `SELECT ${balanceColumn} FROM users WHERE telegram_id = $1 FOR UPDATE`,
+        [telegramId]
+      );
+      const balance = userRes.rows[0]?.[balanceColumn] ?? 0;
       if (balance < price) {
         await client.query("ROLLBACK");
         return res.status(400).json({ error: "insufficient_balance" });
       }
-      await client.query("UPDATE users SET balance_mmk = balance_mmk - $1 WHERE telegram_id = $2", [
-        price,
-        telegramId,
-      ]);
+      await client.query(
+        `UPDATE users SET ${balanceColumn} = ${balanceColumn} - $1 WHERE telegram_id = $2`,
+        [price, telegramId]
+      );
     }
 
     const orderRes = await client.query(
