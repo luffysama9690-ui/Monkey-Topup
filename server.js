@@ -22,6 +22,7 @@ app.get("/", (req, res) => {
   res.send("Monkey Topup backend is running ✅");
 });
 
+app.use("/api/admin", require("./routes/admin"));
 app.use("/api/users", usersRouter);
 app.use("/api/deposits", depositsRouter);
 app.use("/api/orders", ordersRouter);
