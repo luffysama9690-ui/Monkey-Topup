@@ -102,4 +102,51 @@ function logDeposit({ id, telegramId, amount, currency, status }) {
   return appendRow("Deposits", row);
 }
 
-module.exports = { logOrder, logDeposit };
+// Finds the row whose ID column (column B) matches `id`, and overwrites its
+// status cell. Used when an admin approves/rejects a deposit or order, so the
+// sheet doesn't stay stuck showing "pending" forever.
+async function updateStatus(sheetName, statusColumnLetter, id, status) {
+  const sheetId = process.env.GOOGLE_SHEET_ID;
+  const sheets = getSheetsClient();
+
+  if (!sheets || !sheetId) {
+    console.warn(`updateStatus(${sheetName}) skipped — Google Sheets env vars are not set.`);
+    return;
+  }
+
+  try {
+    const idColumn = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `${sheetName}!B:B`,
+    });
+    const rows = idColumn.data.values || [];
+    const rowIndex = rows.findIndex((r) => String(r[0]) === String(id));
+    if (rowIndex === -1) {
+      console.warn(`updateStatus(${sheetName}) — no row found for id ${id}`);
+      return;
+    }
+
+    const rowNumber = rowIndex + 1; // sheet rows are 1-indexed, matching the B:B range directly
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `${sheetName}!${statusColumnLetter}${rowNumber}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values: [[status]] },
+    });
+  } catch (err) {
+    console.error(`updateStatus(${sheetName}) failed:`, err.message);
+  }
+}
+
+// Deposits layout: A=timestamp, B=id, C=telegramId, D=amount, E=currency, F=status
+function updateDepositStatus(id, status) {
+  return updateStatus("Deposits", "F", id, status);
+}
+
+// Orders layout: A=timestamp, B=id, C=telegramId, D=game, E=item, F=gameId,
+// G=serverId, H=qty, I=price, J=currency, K=payMethod, L=status
+function updateOrderStatus(id, status) {
+  return updateStatus("Orders", "L", id, status);
+}
+
+module.exports = { logOrder, logDeposit, updateDepositStatus, updateOrderStatus };
