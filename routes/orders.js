@@ -1,6 +1,7 @@
 const express = require("express");
 const pool = require("../db");
 const { notifyAdmin } = require("./telegram");
+const { logOrder } = require("./sheets");
 
 const router = express.Router();
 
@@ -60,6 +61,20 @@ router.post("/", async (req, res) => {
         `Pay method: ${payMethod}` +
         (screenshotUrl ? `\nScreenshot: ${screenshotUrl}` : "")
     );
+
+    logOrder({
+      id: orderRes.rows[0].id,
+      telegramId,
+      game,
+      item,
+      gameId,
+      serverId,
+      qty: qty || 1,
+      price,
+      currency,
+      payMethod,
+      status: orderRes.rows[0].status,
+    });
 
     res.status(201).json(orderRes.rows[0]);
   } catch (err) {
