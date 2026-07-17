@@ -1,5 +1,6 @@
 const express = require("express");
 const pool = require("../db");
+const { updateDepositStatus, updateOrderStatus } = require("./sheets");
 
 const router = express.Router();
 
@@ -51,11 +52,9 @@ router.patch("/deposits/:id/status", async (req, res) => {
   if (!["success", "rejected"].includes(status)) {
     return res.status(400).json({ error: "status must be 'success' or 'rejected'" });
   }
-
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-
     const dep = await client.query("SELECT * FROM deposits WHERE id = $1 FOR UPDATE", [req.params.id]);
     if (dep.rows.length === 0) {
       await client.query("ROLLBACK");
@@ -66,9 +65,7 @@ router.patch("/deposits/:id/status", async (req, res) => {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "Deposit already processed" });
     }
-
     await client.query("UPDATE deposits SET status = $1 WHERE id = $2", [status, req.params.id]);
-
     if (status === "success") {
       const balanceColumn = deposit.currency === "mmk" ? "balance_mmk" : "balance_thb";
       await client.query(
@@ -76,7 +73,6 @@ router.patch("/deposits/:id/status", async (req, res) => {
         [deposit.amount, deposit.telegram_id]
       );
     }
-
     await client.query(
       `INSERT INTO messages (telegram_id, text, icon) VALUES ($1, $2, $3)`,
       [
@@ -87,8 +83,10 @@ router.patch("/deposits/:id/status", async (req, res) => {
         status === "success" ? "✅" : "❌",
       ]
     );
-
     await client.query("COMMIT");
+
+    updateDepositStatus(req.params.id, status);
+
     res.json({ ok: true });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -112,11 +110,9 @@ router.patch("/orders/:id/status", async (req, res) => {
   if (!["success", "failed"].includes(status)) {
     return res.status(400).json({ error: "status must be 'success' or 'failed'" });
   }
-
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-
     const ord = await client.query("SELECT * FROM orders WHERE id = $1 FOR UPDATE", [req.params.id]);
     if (ord.rows.length === 0) {
       await client.query("ROLLBACK");
@@ -127,9 +123,7 @@ router.patch("/orders/:id/status", async (req, res) => {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "Order already processed" });
     }
-
     await client.query("UPDATE orders SET status = $1 WHERE id = $2", [status, req.params.id]);
-
     await client.query(
       `INSERT INTO messages (telegram_id, text, icon) VALUES ($1, $2, $3)`,
       [
@@ -140,8 +134,10 @@ router.patch("/orders/:id/status", async (req, res) => {
         status === "success" ? "✅" : "❌",
       ]
     );
-
     await client.query("COMMIT");
+
+    updateOrderStatus(req.params.id, status);
+
     res.json({ ok: true });
   } catch (err) {
     await client.query("ROLLBACK");
