@@ -1,6 +1,7 @@
 const express = require("express");
 const pool = require("../db");
 const { notifyAdmin } = require("./telegram");
+const { logDeposit } = require("./sheets");
 
 const router = express.Router();
 
@@ -38,6 +39,14 @@ router.post("/", async (req, res) => {
         `Amount: ${amount} ${currency.toUpperCase()}\n` +
         (screenshotUrl ? `Screenshot: ${screenshotUrl}` : "Screenshot: (none)")
     );
+
+    logDeposit({
+      id: deposit.id,
+      telegramId,
+      amount,
+      currency,
+      status: deposit.status,
+    });
 
     res.status(201).json(deposit);
   } catch (err) {
