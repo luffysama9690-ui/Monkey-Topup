@@ -1,7 +1,7 @@
 const express = require("express");
 const pool = require("../db");
 const { notifyAdmin } = require("./telegram");
-const { logDeposit } = require("./sheets");
+const { logDeposit, updateDepositStatus } = require("./sheets");
 
 const router = express.Router();
 
@@ -98,6 +98,9 @@ router.patch("/:id/status", async (req, res) => {
   );
 }
     await client.query("COMMIT");
+
+    updateDepositStatus(req.params.id, status);
+
     res.json({ ok: true });
   } catch (err) {
     await client.query("ROLLBACK");
