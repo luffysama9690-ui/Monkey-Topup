@@ -57,3 +57,31 @@ CREATE TABLE IF NOT EXISTS messages (
   is_read BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ============================================================
+-- Added later: website (email/password) accounts.
+--
+-- Website users share this same `users` table and the same telegram_id
+-- column that deposits/orders/messages/admin/sheets already key off of —
+-- so none of that code needs to change. Real Telegram ids are always
+-- positive, so a website account is given a synthetic *negative*
+-- telegram_id (via web_user_id_seq below), which can never collide with a
+-- real one. All of it is safe to run again.
+-- ============================================================
+
+CREATE SEQUENCE IF NOT EXISTS web_user_id_seq START 1;
+
+ALTER TABLE users ALTER COLUMN telegram_id DROP NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'users_identity_check'
+  ) THEN
+    ALTER TABLE users
+      ADD CONSTRAINT users_identity_check
+      CHECK (telegram_id IS NOT NULL OR email IS NOT NULL);
+  END IF;
+END $$;
