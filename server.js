@@ -11,6 +11,7 @@ const usersRouter = require("./routes/users");
 const depositsRouter = require("./routes/deposits");
 const ordersRouter = require("./routes/orders");
 const messagesRouter = require("./routes/messages");
+const authRouter = require("./routes/auth");
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use("/api/users", usersRouter);
 app.use("/api/deposits", depositsRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/messages", messagesRouter);
+app.use("/api/auth", authRouter);
 
 // Creates the tables automatically on boot if they don't exist yet.
 // schema.sql uses "CREATE TABLE IF NOT EXISTS", so this is safe to run
