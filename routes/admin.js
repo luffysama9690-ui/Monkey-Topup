@@ -242,4 +242,60 @@ router.post("/set-reseller", async (req, res) => {
   }
 });
 
+// POST /api/admin/adjust-balance
+// body: { telegramId, targetTelegramId, currency: "mmk"|"thb", amount, reason }
+// `amount` can be positive (add) or negative (deduct) — use this to fix
+// mistakes, e.g. a deposit that was approved for the wrong amount.
+// Refuses to push a balance below zero, to avoid data corruption.
+router.post("/adjust-balance", async (req, res) => {
+  const { telegramId, targetTelegramId, currency, amount, reason } = req.body;
+  if (!isAdmin(telegramId)) {
+    return res.status(403).json({ error: "Not authorized" });
+  }
+  if (!targetTelegramId || !["mmk", "thb"].includes(currency)) {
+    return res.status(400).json({ error: "targetTelegramId and a valid currency ('mmk' or 'thb') are required" });
+  }
+  const delta = Number(amount);
+  if (!delta || Number.isNaN(delta)) {
+    return res.status(400).json({ error: "amount must be a non-zero number" });
+  }
+
+  const balanceColumn = currency === "mmk" ? "balance_mmk" : "balance_thb";
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const userRes = await client.query(
+      `SELECT ${balanceColumn} FROM users WHERE telegram_id = $1 FOR UPDATE`,
+      [targetTelegramId]
+    );
+    if (userRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "User not found — they need to have opened the app at least once" });
+    }
+    const currentBalance = Number(userRes.rows[0][balanceColumn]);
+    const newBalance = currentBalance + delta;
+    if (newBalance < 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: `Balance မလုံလောက်ပါ (လက်ရှိ: ${currentBalance})` });
+    }
+
+    await client.query(`UPDATE users SET ${balanceColumn} = $1 WHERE telegram_id = $2`, [newBalance, targetTelegramId]);
+
+    await client.query(`INSERT INTO messages (telegram_id, text, icon) VALUES ($1, $2, $3)`, [
+      targetTelegramId,
+      `Admin မှ သင့် balance ကို ${delta > 0 ? "+" : ""}${delta} ${currency.toUpperCase()} ပြင်ဆင်ပေးလိုက်ပါသည်${reason ? ` (${reason})` : ""}။ လက်ရှိ balance: ${newBalance} ${currency.toUpperCase()}`,
+      "🛠️",
+    ]);
+
+    await client.query("COMMIT");
+    res.json({ ok: true, telegramId: targetTelegramId, currency, previousBalance: currentBalance, newBalance });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error(err);
+    res.status(500).json({ error: "Failed to adjust balance" });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
