@@ -1,7 +1,7 @@
 const express = require("express");
 const pool = require("../db");
 const { updateDepositStatus, updateOrderStatus } = require("./sheets");
-const { sendTelegramMessage } = require("./telegram");
+const { sendTelegramMessage, sendTelegramPhoto } = require("./telegram");
 
 const router = express.Router();
 
@@ -156,19 +156,26 @@ function sleep(ms) {
 }
 
 // POST /api/admin/broadcast
-// body: { telegramId, message }
-// Sends `message` to every user who has ever used the app, both as a
-// Telegram DM (via the bot) and as an in-app inbox message (messages table),
-// so people see it even if they've muted/blocked the bot.
+// body: { telegramId, message, imageUrl }
+// Sends `message` (and optionally a photo) to every user who has ever used
+// the app, both as a Telegram DM (via the bot) and as an in-app inbox
+// message (messages table), so people see it even if they've muted/blocked
+// the bot. At least one of message/imageUrl is required.
 router.post("/broadcast", async (req, res) => {
-  const { telegramId, message } = req.body;
+  const { telegramId, message, imageUrl } = req.body;
   if (!isAdmin(telegramId)) {
     return res.status(403).json({ error: "Not authorized" });
   }
   const text = (message || "").trim();
-  if (!text) {
-    return res.status(400).json({ error: "message is required" });
+  const photoUrl = (imageUrl || "").trim();
+  if (!text && !photoUrl) {
+    return res.status(400).json({ error: "message or imageUrl is required" });
   }
+
+  const caption = `📢 Monkey Topup${text ? `\n\n${text}` : ""}`;
+  // What gets saved to the in-app inbox — messages table only stores text,
+  // so if there's a photo we include the link in the text itself.
+  const inAppText = photoUrl ? `${text}${text ? "\n" : ""}📷 ${photoUrl}` : text;
 
   try {
     const usersRes = await pool.query("SELECT telegram_id FROM users WHERE telegram_id IS NOT NULL");
@@ -178,7 +185,9 @@ router.post("/broadcast", async (req, res) => {
     let failed = 0;
 
     for (const uid of recipients) {
-      const ok = await sendTelegramMessage(uid, `📢 <b>Monkey Topup</b>\n\n${text}`);
+      const ok = photoUrl
+        ? await sendTelegramPhoto(uid, photoUrl, caption)
+        : await sendTelegramMessage(uid, caption);
       if (ok) sent++;
       else failed++;
 
@@ -187,7 +196,7 @@ router.post("/broadcast", async (req, res) => {
       try {
         await pool.query(
           `INSERT INTO messages (telegram_id, text, icon) VALUES ($1, $2, $3)`,
-          [uid, text, "📢"]
+          [uid, inAppText, "📢"]
         );
       } catch (err) {
         console.error("broadcast: failed to save in-app message for", uid, err.message);

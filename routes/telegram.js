@@ -55,6 +55,46 @@ async function sendTelegramMessage(chatId, text, options = {}) {
   }
 }
 
+// Same idea as sendTelegramMessage, but sends a photo (with an optional
+// caption) using Telegram's sendPhoto endpoint — used for broadcasts that
+// include an image.
+async function sendTelegramPhoto(chatId, photoUrl, caption = "", options = {}) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!token || !chatId) {
+    console.warn("sendTelegramPhoto skipped — missing TELEGRAM_BOT_TOKEN or chatId.");
+    return false;
+  }
+
+  const body = {
+    chat_id: chatId,
+    photo: photoUrl,
+    caption,
+    parse_mode: "HTML",
+  };
+
+  if (options.replyMarkup) {
+    body.reply_markup = options.replyMarkup;
+  }
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error("sendTelegramPhoto failed:", chatId, res.status, errBody);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("sendTelegramPhoto error:", chatId, err.message);
+    return false;
+  }
+}
+
 // Builds the inline "OPEN" button shown under admin notifications, e.g.
 // New order / New deposit alerts — same idea as the SAKURA Game Shop bot.
 function openAppButton(label = "OPEN") {
@@ -81,4 +121,4 @@ async function notifyAdmin(text, options = {}) {
   });
 }
 
-module.exports = { notifyAdmin, sendTelegramMessage, openAppButton };
+module.exports = { notifyAdmin, sendTelegramMessage, sendTelegramPhoto, openAppButton };
