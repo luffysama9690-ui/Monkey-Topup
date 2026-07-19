@@ -1,6 +1,6 @@
 const express = require("express");
 const pool = require("../db");
-const { notifyAdmin } = require("./telegram");
+const { notifyAdmin, orderDoneButton } = require("./telegram");
 const { logOrder } = require("./sheets");
 
 const router = express.Router();
@@ -38,9 +38,9 @@ router.post("/", async (req, res) => {
     }
 
     const orderRes = await client.query(
-      `INSERT INTO orders (telegram_id, game, item, game_id, server_id, qty, price, currency, status, screenshot_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'success', $9) RETURNING *`,
-      [telegramId, game, item, gameId || null, serverId || null, qty || 1, price, currency, screenshotUrl || null]
+      `INSERT INTO orders (telegram_id, game, item, game_id, server_id, qty, price, currency, status, screenshot_url, pay_method)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'success', $9, $10) RETURNING *`,
+      [telegramId, game, item, gameId || null, serverId || null, qty || 1, price, currency, screenshotUrl || null, payMethod || null]
     );
 
     await client.query(
@@ -55,11 +55,13 @@ router.post("/", async (req, res) => {
       `🛒 <b>New order</b>\n` +
         `Order ID: #${orderRes.rows[0].id}\n` +
         `Telegram ID: ${telegramId}\n` +
+        `Game: ${game}\n` +
         `Item: ${item}${gameId ? ` (GameID: ${gameId}${serverId ? ` / ${serverId}` : ""})` : ""}\n` +
         `Qty: ${qty || 1}\n` +
         `Price: ${price} ${currency.toUpperCase()}\n` +
         `Pay method: ${payMethod}` +
-        (screenshotUrl ? `\nScreenshot: ${screenshotUrl}` : "")
+        (screenshotUrl ? `\nScreenshot: ${screenshotUrl}` : ""),
+      { replyMarkup: orderDoneButton(orderRes.rows[0].id) }
     );
 
     logOrder({

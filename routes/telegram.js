@@ -95,13 +95,76 @@ async function sendTelegramPhoto(chatId, photoUrl, caption = "", options = {}) {
   }
 }
 
+// Tells Telegram "we've handled this button press" — stops the button's
+// loading spinner. `text`, if given, shows briefly as a small popup/toast
+// on the admin's screen.
+async function answerCallbackQuery(callbackQueryId, text = "") {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ callback_query_id: callbackQueryId, text }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("answerCallbackQuery error:", err.message);
+    return false;
+  }
+}
+
+// Replaces the inline keyboard under an existing message — used to remove
+// the "Done" button (or swap it for a disabled-looking one) once the admin
+// has already tapped it, so it can't be pressed twice.
+async function editMessageReplyMarkup(chatId, messageId, replyMarkup) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/editMessageReplyMarkup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: replyMarkup || { inline_keyboard: [] },
+      }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("editMessageReplyMarkup error:", err.message);
+    return false;
+  }
+}
+
 // Builds the inline "OPEN" button shown under admin notifications, e.g.
 // New order / New deposit alerts — same idea as the SAKURA Game Shop bot.
+//
+// Two styles, controlled by the MINI_APP_BUTTON_TYPE env var:
+//   "url"     (default) — always works, but opens the link in an external/
+//              in-app browser and shows a small ↗ "leaving Telegram" icon.
+//   "web_app" — opens the Mini App natively inside Telegram, no ↗ icon,
+//              feels like part of the app. Requires MINI_APP_URL's domain
+//              to be registered as the bot's Mini App domain first
+//              (BotFather → your bot → Bot Settings → Configure Mini App,
+//              or /setdomain). If the domain isn't registered, Telegram
+//              will reject the message, so only switch this on after
+//              that's set up.
 function openAppButton(label = "OPEN") {
   const url = process.env.MINI_APP_URL;
   if (!url) return undefined;
+  const useWebApp = process.env.MINI_APP_BUTTON_TYPE === "web_app";
   return {
-    inline_keyboard: [[{ text: label, url }]],
+    inline_keyboard: [[useWebApp ? { text: label, web_app: { url } } : { text: label, url }]],
+  };
+}
+
+// Builds the inline "✅ Done ပို့ရန်" button shown under New Order
+// notifications. Tapping it is handled by routes/telegramBot.js (the
+// webhook), which sends the customer their receipt and removes the button.
+function orderDoneButton(orderId, label = "✅ Done ပို့ရန်") {
+  return {
+    inline_keyboard: [[{ text: label, callback_data: `order_done_${orderId}` }]],
   };
 }
 
@@ -121,4 +184,12 @@ async function notifyAdmin(text, options = {}) {
   });
 }
 
-module.exports = { notifyAdmin, sendTelegramMessage, sendTelegramPhoto, openAppButton };
+module.exports = {
+  notifyAdmin,
+  sendTelegramMessage,
+  sendTelegramPhoto,
+  openAppButton,
+  orderDoneButton,
+  answerCallbackQuery,
+  editMessageReplyMarkup,
+};
