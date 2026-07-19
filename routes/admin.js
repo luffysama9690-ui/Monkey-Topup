@@ -1,6 +1,7 @@
 const express = require("express");
 const pool = require("../db");
 const { updateDepositStatus, updateOrderStatus } = require("./sheets");
+const { sendTelegramMessage } = require("./telegram");
 
 const router = express.Router();
 
@@ -145,6 +146,61 @@ router.patch("/orders/:id/status", async (req, res) => {
     res.status(500).json({ error: "Failed to update order" });
   } finally {
     client.release();
+  }
+});
+
+// Small helper so the broadcast loop doesn't fire all messages at once —
+// Telegram will start rejecting/throttling if you send too fast.
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// POST /api/admin/broadcast
+// body: { telegramId, message }
+// Sends `message` to every user who has ever used the app, both as a
+// Telegram DM (via the bot) and as an in-app inbox message (messages table),
+// so people see it even if they've muted/blocked the bot.
+router.post("/broadcast", async (req, res) => {
+  const { telegramId, message } = req.body;
+  if (!isAdmin(telegramId)) {
+    return res.status(403).json({ error: "Not authorized" });
+  }
+  const text = (message || "").trim();
+  if (!text) {
+    return res.status(400).json({ error: "message is required" });
+  }
+
+  try {
+    const usersRes = await pool.query("SELECT telegram_id FROM users WHERE telegram_id IS NOT NULL");
+    const recipients = usersRes.rows.map((r) => r.telegram_id);
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const uid of recipients) {
+      const ok = await sendTelegramMessage(uid, `📢 <b>Monkey Topup</b>\n\n${text}`);
+      if (ok) sent++;
+      else failed++;
+
+      // Also drop a copy into their in-app message inbox so it's visible
+      // even if the Telegram DM didn't go through (e.g. bot was blocked).
+      try {
+        await pool.query(
+          `INSERT INTO messages (telegram_id, text, icon) VALUES ($1, $2, $3)`,
+          [uid, text, "📢"]
+        );
+      } catch (err) {
+        console.error("broadcast: failed to save in-app message for", uid, err.message);
+      }
+
+      // Stay well under Telegram's rate limits.
+      await sleep(40);
+    }
+
+    res.json({ ok: true, totalRecipients: recipients.length, sent, failed });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to broadcast message" });
   }
 });
 
