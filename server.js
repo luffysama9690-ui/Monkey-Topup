@@ -34,6 +34,7 @@ app.use("/api/auth", authRouter);
 // notifications). See routes/telegramBot.js for the one-time setWebhook
 // step you need to run after this is deployed.
 app.use("/api/telegram", telegramBotRouter);
+app.use("/api/spin", require("./routes/spin"));
 
 // Creates the tables automatically on boot if they don't exist yet.
 // schema.sql uses "CREATE TABLE IF NOT EXISTS", so this is safe to run
@@ -62,6 +63,13 @@ async function ensureSchema() {
     console.log("Migration check: users.is_reseller is ready.");
   } catch (err) {
     console.error("Failed to migrate users.is_reseller:", err.message);
+  }
+
+  try {
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_spin_at TIMESTAMPTZ");
+    console.log("Migration check: users.last_spin_at is ready.");
+  } catch (err) {
+    console.error("Failed to migrate users.last_spin_at:", err.message);
   }
 }
 
