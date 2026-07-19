@@ -213,4 +213,33 @@ router.post("/broadcast", async (req, res) => {
   }
 });
 
+// POST /api/admin/set-reseller
+// body: { telegramId, targetTelegramId, isReseller }
+// Marks (or unmarks) a user as a reseller. Reseller pricing itself is a flat
+// app-wide discount applied on the frontend (see RESELLER_DISCOUNT_PERCENT
+// in App.jsx / VITE_RESELLER_DISCOUNT_PERCENT) — this endpoint just flips
+// the flag that turns that discount on for a given user.
+router.post("/set-reseller", async (req, res) => {
+  const { telegramId, targetTelegramId, isReseller } = req.body;
+  if (!isAdmin(telegramId)) {
+    return res.status(403).json({ error: "Not authorized" });
+  }
+  if (!targetTelegramId) {
+    return res.status(400).json({ error: "targetTelegramId is required" });
+  }
+  try {
+    const result = await pool.query(
+      "UPDATE users SET is_reseller = $1 WHERE telegram_id = $2 RETURNING telegram_id, is_reseller",
+      [!!isReseller, targetTelegramId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found — they need to have opened the app at least once" });
+    }
+    res.json({ ok: true, user: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update reseller status" });
+  }
+});
+
 module.exports = router;
