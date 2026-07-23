@@ -297,20 +297,21 @@ router.post("/adjust-balance", async (req, res) => {
     client.release();
   }
 });
+
 // GET /api/admin/users?telegramId=...
-// Returns every user with their MMK/THB balances, sorted by total value
-// (converting THB to a rough MMK-equivalent at ~127:1 just for ordering).
+// Returns every user's balance (admin-only) — used by the Admin Panel's
+// "User အားလုံး Balance" list.
 router.get("/users", async (req, res) => {
-  if (!isAdmin(req.query.telegramId)) {
+  const { telegramId } = req.query;
+  if (!isAdmin(telegramId)) {
     return res.status(403).json({ error: "Not authorized" });
   }
   try {
     const result = await pool.query(
-      `SELECT telegram_id, username, balance_mmk, balance_thb, is_reseller
-       FROM users
-       ORDER BY (balance_mmk + balance_thb * 127) DESC`
+      `SELECT telegram_id, balance_mmk, balance_thb, is_reseller
+       FROM users ORDER BY balance_mmk DESC, telegram_id ASC`
     );
-    res.json({ users: result.rows });
+    res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to load users" });
