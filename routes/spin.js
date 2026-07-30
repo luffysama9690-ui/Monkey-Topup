@@ -46,20 +46,20 @@ router.get("/status/:telegramId", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
-   // const lastSpinAt = result.rows[0].last_spin_at;
-    //const nextAt = nextSpinTime(lastSpinAt);
-    //const canSpin = !nextAt || nextAt <= new Date();
-    //res.json({ canSpin, nextSpinAt: canSpin ? null : nextAt, rewards: REWARDS.map((r) => r.amount) });
- // } catch (err) {
-   // console.error(err);
-    //res.status(500).json({ error: "Failed to load spin status" });
+    const lastSpinAt = result.rows[0].last_spin_at;
+    const nextAt = nextSpinTime(lastSpinAt);
+    const canSpin = !nextAt || nextAt <= new Date();
+    res.json({ canSpin, nextSpinAt: canSpin ? null : nextAt, rewards: REWARDS.map((r) => r.amount) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load spin status" });
   }
 });
 
-// POST /api/spin
-// body: { telegramId }
-// Performs the spin: picks a reward, credits it to balance_mmk, and resets
-// the 24h cooldown. Rejects if the user already spun within the last 24h.
+ POST /api/spin
+ body: { telegramId }
+ Performs the spin: picks a reward, credits it to balance_mmk, and resets
+ the 24h cooldown. Rejects if the user already spun within the last 24h.
 router.post("/", async (req, res) => {
   const { telegramId } = req.body;
   if (!telegramId) {
