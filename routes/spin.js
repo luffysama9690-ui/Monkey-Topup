@@ -20,7 +20,7 @@ const REWARDS = [
   { amount: 2000, weight: 5 },
 ];
 
-const COOLDOWN_MS = 0 //24 * 60 * 60 * 1000; // 24 hours
+const COOLDOWN_MS = 1 * 60 //24 * 60 * 60 * 1000; // 24 hours
 
 function pickReward() {
   const totalWeight = REWARDS.reduce((sum, r) => sum + r.weight, 0);
@@ -33,8 +33,8 @@ function pickReward() {
 }
 
 function nextSpinTime(lastSpinAt) {
-//if (!lastSpinAt) return null;
-  //return new Date(new Date(lastSpinAt).getTime() + COOLDOWN_MS);
+   if (!lastSpinAt) return null;
+  return new Date(new Date(lastSpinAt).getTime() + COOLDOWN_MS);
 }
 
 // GET /api/spin/status/:telegramId
