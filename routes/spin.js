@@ -32,10 +32,10 @@ function pickReward() {
   return REWARDS[0].amount; // fallback, should never hit
 }
 
-//function nextSpinTime(lastSpinAt) {
+function nextSpinTime(lastSpinAt) {
 //if (!lastSpinAt) return null;
   //return new Date(new Date(lastSpinAt).getTime() + COOLDOWN_MS);
-//}
+}
 
 // GET /api/spin/status/:telegramId
 // Tells the frontend whether the Spin button should be enabled, and if not,
