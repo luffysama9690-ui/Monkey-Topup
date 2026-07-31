@@ -318,4 +318,31 @@ router.get("/users", async (req, res) => {
   }
 });
 
+// POST /api/admin/reset-spin
+// body: { telegramId, targetTelegramId }
+// Clears a user's last_spin_at so they can use the Lucky Spin (ကံစမ်းမဲ)
+// again immediately, instead of waiting for the normal 24h cooldown.
+router.post("/reset-spin", async (req, res) => {
+  const { telegramId, targetTelegramId } = req.body;
+  if (!isAdmin(telegramId)) {
+    return res.status(403).json({ error: "Not authorized" });
+  }
+  if (!targetTelegramId) {
+    return res.status(400).json({ error: "targetTelegramId is required" });
+  }
+  try {
+    const result = await pool.query(
+      "UPDATE users SET last_spin_at = NULL WHERE telegram_id = $1 RETURNING telegram_id",
+      [targetTelegramId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found — they need to have opened the app at least once" });
+    }
+    res.json({ ok: true, telegramId: targetTelegramId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to reset spin" });
+  }
+});
+
 module.exports = router;
