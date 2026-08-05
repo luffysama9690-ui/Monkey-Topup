@@ -2,6 +2,7 @@ const express = require("express");
 const pool = require("../db");
 const { notifyAdmin, orderDoneButton } = require("./telegram");
 const { logOrder } = require("./sheets");
+const { relayMlOrder } = require("../services/relay/relayOrder");
 
 const router = express.Router();
 
@@ -79,6 +80,15 @@ router.post("/", async (req, res) => {
     });
 
     res.status(201).json(orderRes.rows[0]);
+
+    // Fire-and-forget: relay Mobile Legends orders to the supplier bot.
+    // Doesn't block the customer's response; failures are logged, not thrown.
+    relayMlOrder(orderRes.rows[0]).then((result) => {
+      if (!result.ok && result.reason !== "not_ml") {
+        console.warn(`[relay] Order #${orderRes.rows[0].id} not relayed: ${result.reason}`);
+        // TODO: consider notifyAdmin() here so a failed relay doesn't go unnoticed.
+      }
+    });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error(err);

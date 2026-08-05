@@ -67,3 +67,45 @@ You should see: `Monkey Topup backend is running ✅`
 Next step after this: connect the React frontend to this API (replace the
 in-memory `useState` data with real `fetch()` calls to these endpoints), then
 wire up the Telegram Bot + Mini App URL.
+
+## Supplier bot relay (Mobile Legends diamond orders)
+
+New orders for `game === "Mobile Legends"` are automatically relayed to
+`@easytopup4ubot` via `services/relay/relayOrder.js`, called from
+`routes/orders.js` right after an order is created. This uses a Telegram
+**userbot** (your own account, not a regular Bot API bot) since bots
+can't message other bots first — see `services/relay/telegramUserbot.js`.
+
+### Setup
+
+1. Get `api_id` / `api_hash` from https://my.telegram.org
+2. `npm install` (pulls in the new `telegram` + `input` deps)
+3. Generate a session string (one-time, locally):
+   ```bash
+   TG_API_ID=your_id TG_API_HASH=your_hash npm run generate-session
+   ```
+   Follow the prompts, then copy the printed session string.
+4. Add these env vars on Render (same place as `DATABASE_URL`):
+   - `TG_API_ID`
+   - `TG_API_HASH`
+   - `TG_SESSION_STRING` — from step 3. **Keep this secret** — it's
+     equivalent to your account password. If leaked, revoke it from
+     Telegram → Settings → Devices.
+   - `SUPPLIER_BOT_USERNAME` — defaults to `easytopup4ubot` if unset
+
+### ⚠️ Still needs manual confirmation before relying on it in production
+
+`services/relay/relayOrder.js`'s `MONKEY_ITEM_MAP` maps your `item`
+column values to the supplier's item codes. Everything is filled in
+**except** the "2x Diamonds" bundles (`50+50 အပိုရ`, `150+150 အပိုရ`,
+`250+250 အပိုရ`, `500+500 အပိုရ`) — these are commented out because I
+couldn't confidently match them to a supplier code from the data
+available. To confirm: send a candidate `.p`/`.m` command with a real
+test player ID, check the delivered diamond count in-game, and match it
+against the bundle. Wrong codes mean under/over-delivering diamonds to
+a paying customer — don't guess.
+
+Also note: the supplier bot deducts a **0.4% fee** on any Mobile
+Legends order that auto-retries after a server error within 24 hours
+(1,000 coins → -4, 10,000 → -40) — factor this into margin if you ever
+add retry logic.
