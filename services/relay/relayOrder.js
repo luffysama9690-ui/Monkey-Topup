@@ -59,6 +59,16 @@ const MONKEY_ITEM_MAP = {
  *   (id, telegram_id, game, item, game_id, server_id, qty, price, currency, ...)
  */
 async function relayMlOrder(order) {
+  // Skip entirely (without attempting a Telegram connection) if the
+  // userbot isn't configured yet. Trying to connect with an empty
+  // api_id/api_hash can hang/retry and interfere with other outbound
+  // Telegram API calls (e.g. the admin notification), not just fail
+  // quietly — so bail out before touching telegramUserbot at all.
+  if (!process.env.TG_API_ID || !process.env.TG_API_HASH || !process.env.TG_SESSION_STRING) {
+    console.warn(`[relay] Skipping order #${order.id} — TG_API_ID/TG_API_HASH/TG_SESSION_STRING not set yet`);
+    return { ok: false, reason: "relay_not_configured" };
+  }
+
   if (order.game !== "Mobile Legends") {
     return { ok: false, reason: "not_ml" };
   }
