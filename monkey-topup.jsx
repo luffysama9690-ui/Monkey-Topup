@@ -18,10 +18,10 @@ const BANNER_IMAGES = {
 
 // ---------- Package data ----------
 const ML_PASSES = [
-  { id: "elite", name: "Weekly Elite Bundle", mmk: [3600], thb: [28] },
-  { id: "epic", name: "Monthly Epic Bundle", mmk: [17800], thb: [140] },
-  { id: "weekly", name: "Weekly Pass", mmk: [6900], thb: [54] },
-  { id: "twilight", name: "Twilight Pass", mmk: [36500], thb: [287] },
+  { id: "elite", name: "Weekly Elite Bundle", mmk: [3566], thb: [29] },
+  { id: "epic", name: "Monthly Epic Bundle", mmk: [17967], thb: [143] },
+  { id: "weekly", name: "Weekly Pass", mmk: [6949], thb: [56] },
+  { id: "twilight", name: "Twilight Pass", mmk: [36803], thb: [293] },
 ];
 
 const ML_2X = [
@@ -32,12 +32,12 @@ const ML_2X = [
 ];
 
 const ML_DIAMONDS = [
-  [11, 900, 7], [22, 1700, 13], [33, 2600, 20], [44, 3400, 27], [56, 4300, 34],
-  [86, 5600, 44], [112, 8500, 67], [172, 11100, 87], [257, 16100, 127],
-  [343, 21700, 171], [429, 27200, 214], [514, 32200, 254], [600, 37700, 297],
-  [706, 43500, 343], [878, 54500, 429], [963, 59600, 469], [1049, 65100, 513],
-  [1135, 70600, 556], [1412, 86900, 684], [2195, 131600, 1036], [2901, 175000, 1378],
-  [3688, 219400, 1728], [4394, 262900, 2070], [5532, 331300, 2609], [9288, 550200, 4332],
+  [11, 915, 8], [22, 1738, 14], [33, 2606, 21], [44, 3475, 28], [56, 4344, 35],
+  [86, 5624, 45], [112, 8687, 69], [172, 11155, 89], [257, 16230, 129],
+  [343, 21853, 174], [429, 27385, 218], [514, 32459, 258], [600, 38083, 303],
+  [706, 43889, 349], [878, 55044, 437], [963, 60118, 478], [1049, 65741, 522],
+  [1135, 71273, 566], [1412, 87777, 697], [2195, 132854, 1055], [2901, 176742, 1403],
+  [3688, 221636, 1760], [4394, 265524, 2108], [5532, 334648, 2656], [9288, 555826, 4412],
 ].map(([amt, mmk, thb]) => ({ id: "dm" + amt, label: `Diamond ${amt}`, mmk: [mmk], thb: [thb] }));
 
 // ---- Magic Chess GoGo ----
@@ -162,9 +162,9 @@ function copyText(text, onDone) {
 // ---------- Small UI atoms ----------
 function TopBar({ title, onBack }) {
   return (
-    <div className="sticky top-0 z-20 bg-gradient-to-b from-slate-900 to-slate-800 text-white px-4 py-3 relative flex items-center justify-center shadow-md">
+    <div className="sticky top-0 z-20 bg-gradient-to-b from-violet-500 to-purple-600 text-white px-4 py-3 relative flex items-center justify-center shadow-md">
       {onBack && (
-        <button onClick={onBack} className="absolute left-4 text-violet-300 text-sm font-medium active:opacity-60">
+        <button onClick={onBack} className="absolute left-4 text-violet-100 text-sm font-medium active:opacity-60">
           ← Back
         </button>
       )}
@@ -183,12 +183,12 @@ function BottomNav({ active, onNavigate, unreadCount = 0 }) {
     { key: "profile", label: "PROFILE", icon: "👤" },
   ];
   return (
-    <div className="sticky bottom-0 z-20 bg-slate-950 grid grid-cols-4 text-[11px] text-slate-400 border-t border-slate-800">
+    <div className="sticky bottom-0 z-20 bg-violet-700 grid grid-cols-4 text-[11px] text-violet-200 border-t border-violet-500">
       {items.map((it) => (
         <button
           key={it.key}
           onClick={() => onNavigate && onNavigate(it.key)}
-          className={`relative flex flex-col items-center gap-1 py-2 ${active === it.key ? "text-violet-400" : ""}`}
+          className={`relative flex flex-col items-center gap-1 py-2 ${active === it.key ? "text-amber-200" : ""}`}
         >
           <span className="relative text-lg leading-none">
             {it.icon}
@@ -207,7 +207,7 @@ function BottomNav({ active, onNavigate, unreadCount = 0 }) {
 
 function Pill({ children, tone = "slate" }) {
   const tones = {
-    slate: "bg-slate-700 text-slate-100",
+    slate: "bg-violet-500 text-violet-50",
     green: "bg-emerald-500 text-white",
     amber: "bg-amber-500 text-white",
     red: "bg-rose-500 text-white",
@@ -409,7 +409,7 @@ export default function MonkeyTopup() {
 
   return (
     <div className="min-h-screen w-full bg-slate-100 flex justify-center font-sans">
-      <div className="w-full max-w-sm bg-gradient-to-b from-indigo-950 via-violet-900 to-slate-900 min-h-screen flex flex-col relative">
+      <div className="w-full max-w-sm bg-gradient-to-b from-indigo-500 via-purple-500 to-violet-600 min-h-screen flex flex-col relative">
         {/* ---------------- SHOP HOME ---------------- */}
         {view === "shop" && (
           <>
@@ -435,7 +435,7 @@ export default function MonkeyTopup() {
                 </div>
               </div>
 
-              <div className="bg-black text-white text-center rounded-lg py-3 font-bold tracking-wide">
+              <div className="bg-indigo-800/70 text-white text-center rounded-lg py-3 font-bold tracking-wide">
                 လက်ကျန်ငွေ : {fmt(balance)} ကျပ်
               </div>
 
@@ -443,7 +443,7 @@ export default function MonkeyTopup() {
                 <button onClick={() => setView("topup")} className="bg-emerald-500 active:bg-emerald-600 text-white font-bold rounded-lg py-3 shadow">
                   ငွေဖြည့်မည်
                 </button>
-                <button onClick={() => setView("orders")} className="bg-gradient-to-r from-violet-700 to-indigo-800 active:from-violet-800 active:to-indigo-900 text-white font-bold rounded-lg py-3 shadow">
+                <button onClick={() => setView("orders")} className="bg-gradient-to-r from-violet-500 to-purple-600 active:from-violet-600 active:to-purple-700 text-white font-bold rounded-lg py-3 shadow">
                   အော်ဒါများ
                 </button>
               </div>
@@ -459,7 +459,7 @@ export default function MonkeyTopup() {
                         if (g.id === "mc") setView("mcDetail");
                         if (g.id === "pubg") setView("pubgDetail");
                       }}
-                      className="rounded-xl overflow-hidden bg-black shadow border border-white/10 text-left"
+                      className="rounded-xl overflow-hidden bg-indigo-800/70 shadow border border-white/10 text-left"
                     >
                       <GameIcon icon={g.icon} grad={g.grad} image={g.image} name={g.name} />
                       <div className="p-2">
@@ -481,7 +481,7 @@ export default function MonkeyTopup() {
             <TopBar title={APP_NAME} onBack={() => setView("shop")} />
             <div className="p-4 flex-1 overflow-y-auto space-y-4">
               <div className="bg-white rounded-xl overflow-hidden shadow">
-                <div className="bg-gradient-to-r from-indigo-950 to-violet-800 text-white px-4 py-3 flex justify-between items-center">
+                <div className="bg-gradient-to-r from-indigo-500 to-violet-600 text-white px-4 py-3 flex justify-between items-center">
                   <span className="font-bold">ငွေဖြည့်မည်</span>
                   <button onClick={() => setHistoryOpen(true)} className="bg-violet-500/40 text-xs px-2 py-1 rounded">
                     မှတ်တမ်း
@@ -544,7 +544,7 @@ export default function MonkeyTopup() {
                             <button
                               type="button"
                               onClick={() => handleCopy(acc.number)}
-                              className="bg-slate-900 text-white text-xs px-3 py-1.5 rounded active:scale-95 transition"
+                              className="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded active:scale-95 transition"
                             >
                               Copy
                             </button>
@@ -582,7 +582,7 @@ export default function MonkeyTopup() {
             <TopBar title={APP_NAME} onBack={() => setView("shop")} />
             <div className="p-4 flex-1 overflow-y-auto">
               <div className="bg-white rounded-xl overflow-hidden shadow">
-                <div className="bg-gradient-to-r from-indigo-950 to-violet-800 text-white text-center py-3 font-bold">
+                <div className="bg-gradient-to-r from-indigo-500 to-violet-600 text-white text-center py-3 font-bold">
                   ဝယ်ယူမှုမှတ်တမ်းများ
                 </div>
                 <div className="grid grid-cols-3 text-xs font-bold text-slate-500 px-3 py-2 border-b">
@@ -637,7 +637,7 @@ export default function MonkeyTopup() {
           <>
             <TopBar title={APP_NAME} onBack={() => setView("shop")} />
             <div className="p-4 flex-1 overflow-y-auto space-y-4 pb-6">
-              <div className="bg-slate-900/90 rounded-xl p-4 text-white space-y-3">
+              <div className="bg-indigo-700/70 rounded-xl p-4 text-white space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="font-bold">🖥 Select Server</span>
                   <button onClick={() => setView("shop")} className="text-amber-300 text-xs font-bold active:opacity-60">
@@ -650,7 +650,7 @@ export default function MonkeyTopup() {
                       key={s}
                       onClick={() => setServer(s)}
                       className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-                        server === s ? "bg-emerald-600 border-emerald-400" : "bg-slate-800 border-slate-700"
+                        server === s ? "bg-emerald-600 border-emerald-400" : "bg-indigo-500/30 border-indigo-300/30"
                       }`}
                     >
                       {s}
@@ -751,7 +751,7 @@ export default function MonkeyTopup() {
         {modalOpen && selectedPkg && (
           <div className="fixed inset-0 z-30 bg-black/50 flex items-center justify-center p-4">
             <div className="w-full max-w-sm bg-white rounded-2xl max-h-[88vh] overflow-y-auto shadow-2xl">
-              <div className="bg-gradient-to-r from-indigo-950 to-violet-700 text-white px-4 py-3 flex justify-between items-center sticky top-0 rounded-t-2xl">
+              <div className="bg-gradient-to-r from-indigo-500 to-violet-600 text-white px-4 py-3 flex justify-between items-center sticky top-0 rounded-t-2xl">
                 <span className="font-bold">အချက်အလက်များ ဖြည့်သွင်းပါ</span>
                 <button onClick={() => setModalOpen(false)} className="text-lg">✕</button>
               </div>
@@ -815,13 +815,13 @@ export default function MonkeyTopup() {
                   <div className="grid grid-cols-2 rounded-lg overflow-hidden border">
                     <button
                       onClick={() => setPayMethod("wallet")}
-                      className={`py-2 text-sm font-bold transition ${payMethod === "wallet" ? "bg-slate-900 text-white" : "bg-white text-slate-600"}`}
+                      className={`py-2 text-sm font-bold transition ${payMethod === "wallet" ? "bg-indigo-600 text-white" : "bg-white text-slate-600"}`}
                     >
                       ပိုက်ဆံအိတ်
                     </button>
                     <button
                       onClick={() => setPayMethod("transfer")}
-                      className={`py-2 text-sm font-bold transition ${payMethod === "transfer" ? "bg-slate-900 text-white" : "bg-white text-slate-600"}`}
+                      className={`py-2 text-sm font-bold transition ${payMethod === "transfer" ? "bg-indigo-600 text-white" : "bg-white text-slate-600"}`}
                     >
                       ငွေလွှဲပုံ
                     </button>
@@ -879,7 +879,7 @@ export default function MonkeyTopup() {
         {historyOpen && (
           <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4">
             <div className="w-full max-w-sm bg-white rounded-2xl max-h-[80vh] overflow-y-auto shadow-2xl">
-              <div className="bg-gradient-to-r from-indigo-950 to-violet-800 text-white px-4 py-3 flex justify-between items-center rounded-t-2xl">
+              <div className="bg-gradient-to-r from-indigo-500 to-violet-600 text-white px-4 py-3 flex justify-between items-center rounded-t-2xl">
                 <span className="font-bold">ငွေဖြည့်မှတ်တမ်း</span>
                 <button onClick={() => setHistoryOpen(false)}>✕</button>
               </div>
@@ -927,7 +927,7 @@ export default function MonkeyTopup() {
 
         {/* ---------------- TOAST ---------------- */}
         {toast && (
-          <div className="fixed top-28 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-base font-semibold px-5 py-3 rounded-full shadow-lg max-w-[90%] text-center">
+          <div className="fixed top-28 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-base font-semibold px-5 py-3 rounded-full shadow-lg max-w-[90%] text-center">
             {toast.msg}
           </div>
         )}
