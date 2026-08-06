@@ -35,6 +35,7 @@ app.use("/api/auth", authRouter);
 // step you need to run after this is deployed.
 app.use("/api/telegram", telegramBotRouter);
 app.use("/api/spin", require("./routes/spin"));
+app.use("/api", require("./routes/verify"));
 
 // Creates the tables automatically on boot if they don't exist yet.
 // schema.sql uses "CREATE TABLE IF NOT EXISTS", so this is safe to run
