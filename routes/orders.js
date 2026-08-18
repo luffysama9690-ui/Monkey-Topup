@@ -2,7 +2,7 @@ const express = require("express");
 const pool = require("../db");
 const { notifyAdmin, orderDoneButton } = require("./telegram");
 const { logOrder } = require("./sheets");
-const { relayMlOrder } = require("../services/relay/relayOrder");
+const { relayMlOrderFazercards, relayMcOrderFazercards, relayPubgOrderFazercards } = require("../services/relay/relayFazercards");
 
 const router = express.Router();
 
@@ -81,11 +81,13 @@ router.post("/", async (req, res) => {
 
     res.status(201).json(orderRes.rows[0]);
 
-    // Fire-and-forget: relay Mobile Legends orders to the supplier bot.
+    // Fire-and-forget: relay orders to FazerCards for the games it covers.
     // Doesn't block the customer's response; failures are logged, not thrown.
-    relayMlOrder(orderRes.rows[0]).then((result) => {
-      if (!result.ok && result.reason !== "not_ml") {
-        console.warn(`[relay] Order #${orderRes.rows[0].id} not relayed: ${result.reason}`);
+    const relayers = [relayMlOrderFazercards, relayMcOrderFazercards, relayPubgOrderFazercards];
+    Promise.all(relayers.map((fn) => fn(orderRes.rows[0]))).then((results) => {
+      const attempted = results.find((r) => r.reason !== undefined && !r.reason.startsWith("not_"));
+      if (attempted && !attempted.ok) {
+        console.warn(`[relay] Order #${orderRes.rows[0].id} not relayed: ${attempted.reason}`);
         // TODO: consider notifyAdmin() here so a failed relay doesn't go unnoticed.
       }
     });
