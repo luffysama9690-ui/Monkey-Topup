@@ -141,12 +141,28 @@ async function relayViaFazercards(order, { game, categoryId }) {
   }
 }
 
-const relayMlOrderFazercards = (order) => relayViaFazercards(order, { game: "Mobile Legends", categoryId: CATEGORY_IDS.ML });
+// The only Mobile Legends items FazerCards actually sells (kept in sync
+// with Money_topup_front's ML_DIAMONDS/ML_PASSES supplier-source comments).
+// Everything else routes to the easytopup4ubot Telegram relay instead
+// (see routes/orders.js).
+const FAZERCARDS_ML_ITEMS = new Set([
+  "Diamond 86", "Diamond 172", "Diamond 257", "Diamond 429", "Diamond 706",
+  "Diamond 2195", "Diamond 3688", "Diamond 5532", "Diamond 9288",
+  "Weekly Elite Bundle", "Monthly Epic Bundle", "Weekly Pass", "Twilight Pass",
+]);
+
+const relayMlOrderFazercards = (order) => {
+  if (order.game === "Mobile Legends" && !FAZERCARDS_ML_ITEMS.has(order.item)) {
+    return Promise.resolve({ ok: false, reason: "not_on_fazercards" });
+  }
+  return relayViaFazercards(order, { game: "Mobile Legends", categoryId: CATEGORY_IDS.ML });
+};
 const relayMcOrderFazercards = (order) => relayViaFazercards(order, { game: "Magic Chess GoGo", categoryId: CATEGORY_IDS.MCGG });
 const relayPubgOrderFazercards = (order) => relayViaFazercards(order, { game: "PUBG Mobile", categoryId: CATEGORY_IDS.PUBG });
 
 module.exports = {
   CATEGORY_IDS,
+  FAZERCARDS_ML_ITEMS,
   relayMlOrderFazercards,
   relayMcOrderFazercards,
   relayPubgOrderFazercards,

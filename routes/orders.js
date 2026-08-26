@@ -3,6 +3,7 @@ const pool = require("../db");
 const { notifyAdmin, orderDoneButton } = require("./telegram");
 const { logOrder } = require("./sheets");
 const { relayMlOrderFazercards, relayMcOrderFazercards, relayPubgOrderFazercards, validateGamePlayerId } = require("../services/relay/relayFazercards");
+const { relayMlOrder } = require("../services/relay/relayOrder"); // easytopup4ubot fallback for ML items FazerCards doesn't sell (2x Diamonds bundles, and diamond amounts outside FazerCards' catalog)
 
 const router = express.Router();
 
@@ -91,16 +92,33 @@ router.post("/", async (req, res) => {
 
     res.status(201).json(orderRes.rows[0]);
 
-    // Fire-and-forget: relay orders to FazerCards for the games it covers.
-    // Doesn't block the customer's response; failures are logged, not thrown.
-    const relayers = [relayMlOrderFazercards, relayMcOrderFazercards, relayPubgOrderFazercards];
-    Promise.all(relayers.map((fn) => fn(orderRes.rows[0]))).then((results) => {
-      const attempted = results.find((r) => r.reason !== undefined && !r.reason.startsWith("not_"));
+    // Fire-and-forget: relay orders to whichever supplier covers this
+    // game/item. Doesn't block the customer's response; failures are
+    // logged, not thrown.
+    (async () => {
+      const order = orderRes.rows[0];
+      const results = await Promise.all([
+        relayMlOrderFazercards(order),
+        relayMcOrderFazercards(order),
+        relayPubgOrderFazercards(order),
+      ]);
+
+      // Mobile Legends hybrid: FazerCards doesn't sell every ML item (2x
+      // Diamonds bundles, and several diamond amounts) — fall back to the
+      // easytopup4ubot Telegram relay for exactly those.
+      const mlResult = results[0];
+      let finalMlResult = mlResult;
+      if (order.game === "Mobile Legends" && mlResult.reason === "not_on_fazercards") {
+        finalMlResult = await relayMlOrder(order);
+      }
+
+      const allResults = [finalMlResult, results[1], results[2]];
+      const attempted = allResults.find((r) => r.reason !== undefined && !r.reason.startsWith("not_"));
       if (attempted && !attempted.ok) {
-        console.warn(`[relay] Order #${orderRes.rows[0].id} not relayed: ${attempted.reason}`);
+        console.warn(`[relay] Order #${order.id} not relayed: ${attempted.reason}`);
         // TODO: consider notifyAdmin() here so a failed relay doesn't go unnoticed.
       }
-    });
+    })();
   } catch (err) {
     await client.query("ROLLBACK");
     console.error(err);
