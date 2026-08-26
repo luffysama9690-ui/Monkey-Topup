@@ -1,4 +1,4 @@
-const { getOffers, createTopupOrder } = require("./fazercards");
+const { getOffers, createTopupOrder, validatePlayerId } = require("./fazercards");
 
 /**
  * Category IDs confirmed live against Myatko's Monkey Topup package list
@@ -83,6 +83,37 @@ function buildFields(fieldsSchema, order) {
   return fields;
 }
 
+const GAME_TO_CATEGORY = {
+  "Mobile Legends": CATEGORY_IDS.ML,
+  "Magic Chess GoGo": CATEGORY_IDS.MCGG,
+  "PUBG Mobile": CATEGORY_IDS.PUBG,
+};
+
+/**
+ * Validates a Player ID + Server ID against FazerCards before an order is
+ * accepted, for whichever games FazerCards covers.
+ *
+ * Returns:
+ *   { checked: false }                                 — game isn't one FazerCards covers, or gameId missing; caller should just proceed
+ *   { checked: true, valid: true, playerName, region }  — confirmed real account
+ *   { checked: true, valid: false }                     — FazerCards says this ID/Server doesn't exist
+ *   { checked: true, valid: null, error }                — couldn't check (network/API issue) — caller should fail OPEN (don't block the sale over an unrelated outage), just log it
+ */
+async function validateGamePlayerId(game, gameId, serverId) {
+  const categoryId = GAME_TO_CATEGORY[game];
+  if (!categoryId || !gameId) return { checked: false };
+
+  try {
+    const { fields: fieldsSchema } = await getOffers(categoryId);
+    const fields = buildFields(fieldsSchema || [], { game_id: gameId, server_id: serverId });
+    const result = await validatePlayerId(categoryId, fields);
+    return { checked: true, valid: !!result.valid, playerName: result.player_name, region: result.region };
+  } catch (err) {
+    console.error(`[fazercards] validate-id check failed for ${game} (${gameId}/${serverId}): ${err.message}`);
+    return { checked: true, valid: null, error: err.message };
+  }
+}
+
 async function relayViaFazercards(order, { game, categoryId }) {
   if (order.game !== game) return { ok: false, reason: "not_" + game.toLowerCase().replace(/\s+/g, "_") };
   if (!order.game_id) {
@@ -119,6 +150,7 @@ module.exports = {
   relayMlOrderFazercards,
   relayMcOrderFazercards,
   relayPubgOrderFazercards,
+  validateGamePlayerId,
   // exported for testing / debugging
   findOfferForItem,
   offerDiamondTotal,

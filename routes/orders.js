@@ -2,7 +2,7 @@ const express = require("express");
 const pool = require("../db");
 const { notifyAdmin, orderDoneButton } = require("./telegram");
 const { logOrder } = require("./sheets");
-const { relayMlOrderFazercards, relayMcOrderFazercards, relayPubgOrderFazercards } = require("../services/relay/relayFazercards");
+const { relayMlOrderFazercards, relayMcOrderFazercards, relayPubgOrderFazercards, validateGamePlayerId } = require("../services/relay/relayFazercards");
 
 const router = express.Router();
 
@@ -16,6 +16,16 @@ router.post("/", async (req, res) => {
   if (!telegramId || !game || !item || !price || !currency) {
     return res.status(400).json({ error: "telegramId, game, item, price, and currency are required" });
   }
+
+  // Catch a mistyped Player ID / Server ID before we touch the customer's
+  // wallet balance. Only runs for games FazerCards covers (ML/MCGG/PUBG);
+  // other games just skip straight through (checked: false).
+  const idCheck = await validateGamePlayerId(game, gameId, serverId);
+  if (idCheck.checked && idCheck.valid === false) {
+    return res.status(400).json({ error: "invalid_player_id", message: "Player ID သို့မဟုတ် Server ID မှားနေပါသည် — ပြန်စစ်ပေးပါ" });
+  }
+  // idCheck.valid === null (FazerCards unreachable) intentionally falls
+  // through — we don't want an unrelated API outage to block every sale.
 
   const client = await pool.connect();
   try {
