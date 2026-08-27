@@ -142,9 +142,10 @@ async function relayViaFazercards(order, { game, categoryId }) {
 }
 
 // The only Mobile Legends items FazerCards actually sells (kept in sync
-// with Money_topup_front's ML_DIAMONDS/ML_PASSES supplier-source comments).
-// Everything else routes to the easytopup4ubot Telegram relay instead
-// (see routes/orders.js).
+// with Money_topup_front's ML_DIAMONDS/ML_PASSES). ML is 100% FazerCards
+// now (no other supplier) — this set exists as a safety guard so a
+// mismatched item name fails loudly ("not_on_fazercards", logged in
+// routes/orders.js) instead of silently erroring against the API.
 const FAZERCARDS_ML_ITEMS = new Set([
   "Diamond 86", "Diamond 172", "Diamond 257", "Diamond 429", "Diamond 706",
   "Diamond 2195", "Diamond 3688", "Diamond 5532", "Diamond 9288",
