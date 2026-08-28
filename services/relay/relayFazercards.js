@@ -9,6 +9,8 @@ const CATEGORY_IDS = {
   ML: "a67331f3-7a3a-4345-b948-a07aa81cba62", // Mobile Legends (Global)
   MCGG: "5ee6297b-42d1-41da-8b12-9e2821691f6a", // Magic Chess Go Go (Global)
   PUBG: "8e34ea33-5d6f-4f04-81c0-6cd9d489b71d", // PUBG Mobile (Auto)
+  RACING_SEA: "22c28b10-064b-4731-9c33-555c653029ee", // Racing Master (SEA)
+  RACING_LATAM: "d6595b1f-688f-4da3-ab1b-b1e1baa0e7c5", // Racing Master (LATAM)
 };
 
 // Named (non-diamond) products where FazerCards' name doesn't match
@@ -93,14 +95,21 @@ const GAME_TO_CATEGORY = {
  * Validates a Player ID + Server ID against FazerCards before an order is
  * accepted, for whichever games FazerCards covers.
  *
+ * `item` is only needed for region-split games (Racing Master) where the
+ * category depends on which region's package was picked — pass
+ * order.item; other games ignore it.
+ *
  * Returns:
  *   { checked: false }                                 — game isn't one FazerCards covers, or gameId missing; caller should just proceed
  *   { checked: true, valid: true, playerName, region }  — confirmed real account
  *   { checked: true, valid: false }                     — FazerCards says this ID/Server doesn't exist
  *   { checked: true, valid: null, error }                — couldn't check (network/API issue) — caller should fail OPEN (don't block the sale over an unrelated outage), just log it
  */
-async function validateGamePlayerId(game, gameId, serverId) {
-  const categoryId = GAME_TO_CATEGORY[game];
+async function validateGamePlayerId(game, gameId, serverId, item) {
+  let categoryId = GAME_TO_CATEGORY[game];
+  if (game === "Racing Master") {
+    categoryId = resolveRacingCategory(item)?.categoryId;
+  }
   if (!categoryId || !gameId) return { checked: false };
 
   try {
@@ -114,7 +123,24 @@ async function validateGamePlayerId(game, gameId, serverId) {
   }
 }
 
-async function relayViaFazercards(order, { game, categoryId }) {
+/**
+ * Racing Master items are prefixed with their region ("SEA Novice Pack" /
+ * "LATAM Novice Pack") since the two regions have separate FazerCards
+ * categories but can share the same underlying pack name. Splits that
+ * prefix off and returns the matching category + the bare name FazerCards
+ * actually uses.
+ */
+function resolveRacingCategory(itemName) {
+  if (itemName?.startsWith("SEA ")) {
+    return { categoryId: CATEGORY_IDS.RACING_SEA, bareItem: itemName.slice(4) };
+  }
+  if (itemName?.startsWith("LATAM ")) {
+    return { categoryId: CATEGORY_IDS.RACING_LATAM, bareItem: itemName.slice(6) };
+  }
+  return null;
+}
+
+async function relayViaFazercards(order, { game, categoryId, itemOverride } = {}) {
   if (order.game !== game) return { ok: false, reason: "not_" + game.toLowerCase().replace(/\s+/g, "_") };
   if (!order.game_id) {
     console.error(`[fazercards] Order #${order.id} missing game_id — skipping relay`);
@@ -123,7 +149,7 @@ async function relayViaFazercards(order, { game, categoryId }) {
 
   try {
     const { offers, fields: fieldsSchema } = await getOffers(categoryId);
-    const offer = findOfferForItem(offers, order.item);
+    const offer = findOfferForItem(offers, itemOverride ?? order.item);
     const fields = buildFields(fieldsSchema || [], order);
 
     const result = await createTopupOrder({
@@ -161,14 +187,26 @@ const relayMlOrderFazercards = (order) => {
 const relayMcOrderFazercards = (order) => relayViaFazercards(order, { game: "Magic Chess GoGo", categoryId: CATEGORY_IDS.MCGG });
 const relayPubgOrderFazercards = (order) => relayViaFazercards(order, { game: "PUBG Mobile", categoryId: CATEGORY_IDS.PUBG });
 
+const relayRacingOrderFazercards = (order) => {
+  if (order.game !== "Racing Master") return Promise.resolve({ ok: false, reason: "not_racing_master" });
+  const resolved = resolveRacingCategory(order.item);
+  if (!resolved) {
+    console.error(`[fazercards] Order #${order.id}: Racing Master item "${order.item}" has no SEA/LATAM region prefix — can't tell which category to use`);
+    return Promise.resolve({ ok: false, reason: "unmapped_item" });
+  }
+  return relayViaFazercards(order, { game: "Racing Master", categoryId: resolved.categoryId, itemOverride: resolved.bareItem });
+};
+
 module.exports = {
   CATEGORY_IDS,
   FAZERCARDS_ML_ITEMS,
   relayMlOrderFazercards,
   relayMcOrderFazercards,
   relayPubgOrderFazercards,
+  relayRacingOrderFazercards,
   validateGamePlayerId,
   // exported for testing / debugging
   findOfferForItem,
   offerDiamondTotal,
+  resolveRacingCategory,
 };
