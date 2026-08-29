@@ -1,20 +1,26 @@
 const { getOffers, createTopupOrder, validatePlayerId } = require("./fazercards");
 
 /**
- * Category IDs confirmed against FazerCards' dashboard (2569-08). Re-verify
- * if orders start failing with "unmapped_item" — FazerCards may reshuffle.
+ * Category IDs confirmed against FazerCards' real API catalog
+ * (GET /api/v2/topups) on 2569-08-29.
  *
- * MISSING: Magic Chess Go Go (RU) and CapCut have no category_id yet.
- * Their frontend package data exists (Money_topup_front) but orders for
- * them will safely fail with "unmapped_item" until Myatko provides one.
+ * IMPORTANT: earlier versions of this file used UUIDs copied from the
+ * reseller dashboard's browser URL (e.g. "a67331f3-7a3a-..."). FazerCards
+ * support confirmed those are INTERNAL PANEL IDs that don't work with the
+ * public API at all -- every relay call was failing with "Unknown or
+ * unavailable category_id" until this fix. The real API uses short slugs
+ * like "mobile_legends_global" instead. If orders start failing with that
+ * error again, re-fetch GET /api/v2/topups?limit=500 and diff against this
+ * list -- don't copy IDs from the dashboard URL.
  */
 const CATEGORY_IDS = {
-  ML_GLOBAL: "a67331f3-7a3a-4345-b948-a07aa81cba62",
-  ML_PH: "d76d3d1d-aedf-4c52-8d03-c892dc24ed00",
-  MCGG_GLOBAL: "5ee6297b-42d1-41da-8b12-9e2821691f6a",
-  PUBG_AUTO: "8e34ea33-5d6f-4f04-81c0-6cd9d489b71d",
-  RACING_SEA: "22c28b10-064b-4731-9c33-555c653029ee",
-  RACING_LATAM: "d6595b1f-688f-4da3-ab1b-b1e1baa0e7c5",
+  ML_GLOBAL: "mobile_legends_global",
+  ML_PH: "mobile_legends_philippines",
+  MCGG_GLOBAL: "magic_chess_gogo_global",
+  MCGG_RU: "magic_chess_gogo_ru",
+  PUBG_AUTO: "pubg_mobile_auto",
+  RACING_SEA: "racing_master_sea",
+  RACING_LATAM: "racing_master_latam",
 };
 
 /**
@@ -26,7 +32,7 @@ const CATEGORY_IDS = {
  */
 const REGION_PREFIXES = {
   "Mobile Legends": { Global: CATEGORY_IDS.ML_GLOBAL, PH: CATEGORY_IDS.ML_PH },
-  "Magic Chess GoGo": { Global: CATEGORY_IDS.MCGG_GLOBAL }, // RU deliberately omitted -- no category_id yet
+  "Magic Chess GoGo": { Global: CATEGORY_IDS.MCGG_GLOBAL, RU: CATEGORY_IDS.MCGG_RU },
   "Racing Master": { SEA: CATEGORY_IDS.RACING_SEA, LATAM: CATEGORY_IDS.RACING_LATAM },
 };
 
