@@ -184,27 +184,34 @@ async function notifyAdmin(text, options = {}) {
   });
 }
 
-// Builds the customer-facing main menu shown on /start:
-//   [ 💵 UC Management         ]
-//   [ 👤 Profile ] [ 📦 History ]
-//   [ 📞 Contact Support       ]
+// Persistent reply keyboard shown at the bottom of the chat, next to the
+// message box (Bot API 6.7+ `is_persistent`), matching the requested layout:
+//   [ 💰 Deposit                ]   <- full width
+//   [ 👤 Profile ] [ 📦 History ]   <- two side-by-side
+//   [ 📞 Contact Support        ]   <- full width
+// Unlike inline buttons, this never disappears and never requires the
+// customer to type /start again -- it shows up automatically as soon as
+// they send their first message.
 function mainMenuKeyboard() {
   return {
-    inline_keyboard: [
-      [{ text: "💵 UC Management", callback_data: "menu_uc" }],
-      [
-        { text: "👤 Profile", callback_data: "menu_profile" },
-        { text: "📦 History", callback_data: "menu_history" },
-      ],
-      [{ text: "📞 Contact Support", callback_data: "menu_support" }],
+    keyboard: [
+      ["💰 Deposit"],
+      ["👤 Profile", "📦 History"],
+      ["📞 Contact Support"],
     ],
+    resize_keyboard: true,
+    is_persistent: true,
   };
 }
 
-// Small "◀ Back to Menu" button shown under submenu replies.
-function backToMenuKeyboard() {
-  return { inline_keyboard: [[{ text: "◀ Back to Menu", callback_data: "menu_main" }]] };
-}
+// Reply-keyboard button labels, exported so the webhook can match incoming
+// message text against them without re-typing the strings.
+const MENU_BUTTONS = {
+  DEPOSIT: "💰 Deposit",
+  PROFILE: "👤 Profile",
+  HISTORY: "📦 History",
+  SUPPORT: "📞 Contact Support",
+};
 
 // Edits the text (and optionally the keyboard) of an existing bot message —
 // used for in-place menu navigation (Profile/History/Support screens swap
@@ -245,5 +252,5 @@ module.exports = {
   editMessageReplyMarkup,
   editMessageText,
   mainMenuKeyboard,
-  backToMenuKeyboard,
+  MENU_BUTTONS,
 };

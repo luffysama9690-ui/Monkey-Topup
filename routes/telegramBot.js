@@ -17,10 +17,8 @@ const {
   sendTelegramMessage,
   answerCallbackQuery,
   editMessageReplyMarkup,
-  editMessageText,
   mainMenuKeyboard,
-  backToMenuKeyboard,
-  openAppButton,
+  MENU_BUTTONS,
 } = require("./telegram");
 
 const router = express.Router();
@@ -34,6 +32,19 @@ function isAdmin(telegramId) {
 }
 
 const WELCOME_TEXT = "🐒 <b>Monkey Topup</b>\n\nအောက်က menu ထဲက တစ်ခုခုကို ရွေးပါ 👇";
+
+// Same account list shown in the Mini App's "ငွေဖြည့်မည်" screen
+// (PAYMENT_ACCOUNTS in Money_topup_front/src/App.jsx) -- kept in sync
+// manually since this is a separate repo/deploy.
+const DEPOSIT_ACCOUNTS_TEXT =
+  `💰 <b>Deposit</b>\n\n` +
+  `🇲🇲 <b>MMK</b>\n` +
+  `• KPay: <code>09789565215</code> (Shine Wanna Oo)\n` +
+  `• WavePay: လက်ရှိအချိန်တွင် မရရှိသေးပါ\n\n` +
+  `🇹🇭 <b>THB</b>\n` +
+  `• K Bank: <code>1588869616</code> (Myant Ko Ko Khaing)\n` +
+  `• TrueMoney: <code>0617238353</code> (Myant Ko Ko Khaing)\n\n` +
+  `ငွေလွှဲပြီးရင် App ထဲက "ငွေဖြည့်မည်" မှာ slip ပုံတင်ပေးပါ 🙏`;
 
 async function getOrCreateUser(telegramId, username) {
   let result = await pool.query("SELECT * FROM users WHERE telegram_id = $1", [telegramId]);
@@ -73,6 +84,11 @@ async function formatHistoryMessage(telegramId) {
   return `📦 <b>History</b> (အသစ်ဆုံး ၅ ခု)\n\n` + lines.join("\n\n");
 }
 
+function formatSupportMessage() {
+  const supportHandle = process.env.SUPPORT_TELEGRAM_USERNAME || "your_support_username";
+  return `📞 <b>Contact Support</b>\n\n@${supportHandle} ကို message ပို့ပါ။`;
+}
+
 // POST /api/telegram/webhook
 router.post("/webhook", async (req, res) => {
   // Acknowledge immediately — Telegram doesn't care what we do after this,
@@ -81,13 +97,40 @@ router.post("/webhook", async (req, res) => {
 
   try {
     const msg = req.body?.message;
-    if (msg?.text === "/start") {
-      await sendTelegramMessage(msg.chat.id, WELCOME_TEXT, { replyMarkup: mainMenuKeyboard() });
+    if (msg?.text) {
+      const chatId = msg.chat.id;
+      const text = msg.text.trim();
+
+      // Any of the persistent reply-keyboard buttons.
+      if (text === MENU_BUTTONS.DEPOSIT) {
+        await sendTelegramMessage(chatId, DEPOSIT_ACCOUNTS_TEXT, { replyMarkup: mainMenuKeyboard() });
+        return;
+      }
+      if (text === MENU_BUTTONS.PROFILE) {
+        const user = await getOrCreateUser(msg.from?.id, msg.from?.username);
+        await sendTelegramMessage(chatId, formatProfileMessage(user), { replyMarkup: mainMenuKeyboard() });
+        return;
+      }
+      if (text === MENU_BUTTONS.HISTORY) {
+        const historyText = await formatHistoryMessage(msg.from?.id);
+        await sendTelegramMessage(chatId, historyText, { replyMarkup: mainMenuKeyboard() });
+        return;
+      }
+      if (text === MENU_BUTTONS.SUPPORT) {
+        await sendTelegramMessage(chatId, formatSupportMessage(), { replyMarkup: mainMenuKeyboard() });
+        return;
+      }
+
+      // Any other message (including /start) -- (re)send the welcome text
+      // with the persistent keyboard attached. Since the keyboard is
+      // `is_persistent: true`, the customer never has to type /start again
+      // to see it -- it's shown automatically from their very first message.
+      await sendTelegramMessage(chatId, WELCOME_TEXT, { replyMarkup: mainMenuKeyboard() });
       return;
     }
 
     const cq = req.body?.callback_query;
-    if (!cq) return; // not a button press or /start, ignore
+    if (!cq) return; // not a button press or text message, ignore
 
     // Admin-only: the "✅ Done ပို့ရန်" button under New Order notifications.
     const doneMatch = /^order_done_(\d+)$/.exec(cq.data || "");
@@ -135,57 +178,6 @@ router.post("/webhook", async (req, res) => {
         });
       }
       await answerCallbackQuery(cq.id, "✅ Customer ဆီ ပို့ပြီးပါပြီ");
-      return;
-    }
-
-    // Customer-facing main menu (open to everyone, not just admin).
-    const chatId = cq.message?.chat?.id;
-    const messageId = cq.message?.message_id;
-    if (!chatId || !messageId) {
-      await answerCallbackQuery(cq.id);
-      return;
-    }
-
-    if (cq.data === "menu_main") {
-      await answerCallbackQuery(cq.id);
-      await editMessageText(chatId, messageId, WELCOME_TEXT, { replyMarkup: mainMenuKeyboard() });
-      return;
-    }
-
-    if (cq.data === "menu_uc") {
-      await answerCallbackQuery(cq.id);
-      await editMessageText(
-        chatId,
-        messageId,
-        "💵 <b>UC Management</b>\n\nဂိမ်း package ရွေးချယ်ဖို့ Monkey Topup app ကို ဖွင့်ပါ 👇",
-        { replyMarkup: openAppButton("📲 App ဖွင့်ရန်") || backToMenuKeyboard() }
-      );
-      return;
-    }
-
-    if (cq.data === "menu_profile") {
-      await answerCallbackQuery(cq.id);
-      const user = await getOrCreateUser(cq.from?.id, cq.from?.username);
-      await editMessageText(chatId, messageId, formatProfileMessage(user), { replyMarkup: backToMenuKeyboard() });
-      return;
-    }
-
-    if (cq.data === "menu_history") {
-      await answerCallbackQuery(cq.id);
-      const text = await formatHistoryMessage(cq.from?.id);
-      await editMessageText(chatId, messageId, text, { replyMarkup: backToMenuKeyboard() });
-      return;
-    }
-
-    if (cq.data === "menu_support") {
-      await answerCallbackQuery(cq.id);
-      const supportHandle = process.env.SUPPORT_TELEGRAM_USERNAME || "your_support_username";
-      await editMessageText(
-        chatId,
-        messageId,
-        `📞 <b>Contact Support</b>\n\n@${supportHandle} ကို message ပို့ပါ။`,
-        { replyMarkup: backToMenuKeyboard() }
-      );
       return;
     }
 
