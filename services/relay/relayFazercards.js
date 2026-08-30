@@ -24,6 +24,7 @@ const CATEGORY_IDS = {
   RACING_SEA: "racing_master_sea",
   RACING_LATAM: "racing_master_latam",
   CAPCUT: "capcut",
+  SAUSAGE_MAN: "sausage_man",
 };
 
 /**
@@ -177,6 +178,8 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     categoryId = CATEGORY_IDS.PUBG_NEW_STATE;
   } else if (game === "CapCut") {
     categoryId = CATEGORY_IDS.CAPCUT;
+  } else if (game === "Sausage Man") {
+    categoryId = CATEGORY_IDS.SAUSAGE_MAN;
   } else {
     const resolved = resolveRegionCategory(game, item);
     categoryId = resolved ? resolved.categoryId : undefined;
@@ -261,6 +264,16 @@ const relayCapcutOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.CAPCUT, itemName: order.item });
 };
 
+// Sausage Man item labels ("61 Candies", "186 Candies", ...) match
+// FazerCards' real offer names exactly -- no region prefix, no
+// NAME_OVERRIDES needed. FazerCards only asks for a single "Character ID"
+// field (see buildFields: any field not labeled server/zone gets game_id),
+// so order.server_id is simply ignored here.
+const relaySausageOrderFazercards = (order) => {
+  if (order.game !== "Sausage Man") return Promise.resolve({ ok: false, reason: "not_sausage_man" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.SAUSAGE_MAN, itemName: order.item });
+};
+
 module.exports = {
   CATEGORY_IDS,
   relayMlOrderFazercards,
@@ -268,6 +281,7 @@ module.exports = {
   relayPubgOrderFazercards,
   relayNewStateOrderFazercards,
   relayCapcutOrderFazercards,
+  relaySausageOrderFazercards,
   relayRacingOrderFazercards,
   validateGamePlayerId,
   findOfferForItem,
