@@ -19,6 +19,7 @@ const CATEGORY_IDS = {
   MCGG_GLOBAL: "magic_chess_gogo_global",
   MCGG_RU: "magic_chess_gogo_ru",
   PUBG_AUTO: "pubg_mobile_auto",
+  PUBG_NEW_STATE: "pubg_new_state",
   RACING_SEA: "racing_master_sea",
   RACING_LATAM: "racing_master_latam",
 };
@@ -170,6 +171,8 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
   let categoryId;
   if (game === "PUBG Mobile") {
     categoryId = CATEGORY_IDS.PUBG_AUTO;
+  } else if (game === "PUBG New State") {
+    categoryId = CATEGORY_IDS.PUBG_NEW_STATE;
   } else {
     const resolved = resolveRegionCategory(game, item);
     categoryId = resolved ? resolved.categoryId : undefined;
@@ -241,11 +244,17 @@ const relayPubgOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.PUBG_AUTO, itemName: order.item });
 };
 
+const relayNewStateOrderFazercards = (order) => {
+  if (order.game !== "PUBG New State") return Promise.resolve({ ok: false, reason: "not_pubg_new_state" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.PUBG_NEW_STATE, itemName: order.item });
+};
+
 module.exports = {
   CATEGORY_IDS,
   relayMlOrderFazercards,
   relayMcOrderFazercards,
   relayPubgOrderFazercards,
+  relayNewStateOrderFazercards,
   relayRacingOrderFazercards,
   validateGamePlayerId,
   findOfferForItem,
