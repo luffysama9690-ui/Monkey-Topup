@@ -85,8 +85,11 @@ async function formatHistoryMessage(telegramId) {
 }
 
 function formatSupportMessage() {
-  const supportHandle = process.env.SUPPORT_TELEGRAM_USERNAME || "your_support_username";
-  return `📞 <b>Contact Support</b>\n\n@${supportHandle} ကို message ပို့ပါ။`;
+  const adminHandle = process.env.ADMIN_TELEGRAM_USERNAME || process.env.SUPPORT_TELEGRAM_USERNAME;
+  if (!adminHandle) {
+    return "📞 <b>Contact to Admin</b>\n\nAdmin ရဲ့ Telegram username ကို Render env variable (<code>ADMIN_TELEGRAM_USERNAME</code>) ထဲ ထည့်ပေးရန် လိုအပ်ပါသည်။";
+  }
+  return `📞 <b>Contact to Admin</b>\n\n👉 <a href="https://t.me/${adminHandle}">@${adminHandle}</a> ကို message ပို့ပါ။`;
 }
 
 // POST /api/telegram/webhook

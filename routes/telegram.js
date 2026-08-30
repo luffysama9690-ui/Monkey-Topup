@@ -188,7 +188,7 @@ async function notifyAdmin(text, options = {}) {
 // message box (Bot API 6.7+ `is_persistent`), matching the requested layout:
 //   [ 💰 Deposit                ]   <- full width
 //   [ 👤 Profile ] [ 📦 History ]   <- two side-by-side
-//   [ 📞 Contact Support        ]   <- full width
+//   [ 📞 Contact to Admin       ]   <- full width
 // Unlike inline buttons, this never disappears and never requires the
 // customer to type /start again -- it shows up automatically as soon as
 // they send their first message.
@@ -197,7 +197,7 @@ function mainMenuKeyboard() {
     keyboard: [
       ["💰 Deposit"],
       ["👤 Profile", "📦 History"],
-      ["📞 Contact Support"],
+      ["📞 Contact to Admin"],
     ],
     resize_keyboard: true,
     is_persistent: true,
@@ -210,7 +210,7 @@ const MENU_BUTTONS = {
   DEPOSIT: "💰 Deposit",
   PROFILE: "👤 Profile",
   HISTORY: "📦 History",
-  SUPPORT: "📞 Contact Support",
+  SUPPORT: "📞 Contact to Admin",
 };
 
 // Edits the text (and optionally the keyboard) of an existing bot message —
