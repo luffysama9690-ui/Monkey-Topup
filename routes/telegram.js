@@ -184,6 +184,57 @@ async function notifyAdmin(text, options = {}) {
   });
 }
 
+// Builds the customer-facing main menu shown on /start:
+//   [ 💵 UC Management         ]
+//   [ 👤 Profile ] [ 📦 History ]
+//   [ 📞 Contact Support       ]
+function mainMenuKeyboard() {
+  return {
+    inline_keyboard: [
+      [{ text: "💵 UC Management", callback_data: "menu_uc" }],
+      [
+        { text: "👤 Profile", callback_data: "menu_profile" },
+        { text: "📦 History", callback_data: "menu_history" },
+      ],
+      [{ text: "📞 Contact Support", callback_data: "menu_support" }],
+    ],
+  };
+}
+
+// Small "◀ Back to Menu" button shown under submenu replies.
+function backToMenuKeyboard() {
+  return { inline_keyboard: [[{ text: "◀ Back to Menu", callback_data: "menu_main" }]] };
+}
+
+// Edits the text (and optionally the keyboard) of an existing bot message —
+// used for in-place menu navigation (Profile/History/Support screens swap
+// into the same message instead of sending a new one each time).
+async function editMessageText(chatId, messageId, text, options = {}) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        text,
+        parse_mode: "HTML",
+        reply_markup: options.replyMarkup,
+      }),
+    });
+    if (!res.ok) {
+      console.error("editMessageText failed:", chatId, res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("editMessageText error:", err.message);
+    return false;
+  }
+}
+
 module.exports = {
   notifyAdmin,
   sendTelegramMessage,
@@ -192,4 +243,7 @@ module.exports = {
   orderDoneButton,
   answerCallbackQuery,
   editMessageReplyMarkup,
+  editMessageText,
+  mainMenuKeyboard,
+  backToMenuKeyboard,
 };
