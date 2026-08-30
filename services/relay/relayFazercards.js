@@ -16,12 +16,14 @@ const { getOffers, createTopupOrder, validatePlayerId } = require("./fazercards"
 const CATEGORY_IDS = {
   ML_GLOBAL: "mobile_legends_global",
   ML_PH: "mobile_legends_philippines",
+  ML_RU: "mobile_legends_ru",
   MCGG_GLOBAL: "magic_chess_gogo_global",
   MCGG_RU: "magic_chess_gogo_ru",
   PUBG_AUTO: "pubg_mobile_auto",
   PUBG_NEW_STATE: "pubg_new_state",
   RACING_SEA: "racing_master_sea",
   RACING_LATAM: "racing_master_latam",
+  CAPCUT: "capcut",
 };
 
 /**
@@ -32,7 +34,7 @@ const CATEGORY_IDS = {
  * only one region so it isn't prefixed.
  */
 const REGION_PREFIXES = {
-  "Mobile Legends": { Global: CATEGORY_IDS.ML_GLOBAL, PH: CATEGORY_IDS.ML_PH },
+  "Mobile Legends": { Global: CATEGORY_IDS.ML_GLOBAL, PH: CATEGORY_IDS.ML_PH, RU: CATEGORY_IDS.ML_RU },
   "Magic Chess GoGo": { Global: CATEGORY_IDS.MCGG_GLOBAL, RU: CATEGORY_IDS.MCGG_RU },
   "Racing Master": { SEA: CATEGORY_IDS.RACING_SEA, LATAM: CATEGORY_IDS.RACING_LATAM },
 };
@@ -173,6 +175,8 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     categoryId = CATEGORY_IDS.PUBG_AUTO;
   } else if (game === "PUBG New State") {
     categoryId = CATEGORY_IDS.PUBG_NEW_STATE;
+  } else if (game === "CapCut") {
+    categoryId = CATEGORY_IDS.CAPCUT;
   } else {
     const resolved = resolveRegionCategory(game, item);
     categoryId = resolved ? resolved.categoryId : undefined;
@@ -249,12 +253,21 @@ const relayNewStateOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.PUBG_NEW_STATE, itemName: order.item });
 };
 
+// Ready for when CapCut is added as a product in the frontend (icon/game card/packages
+// not built yet as of 2569-08-30) -- category_id is already confirmed, so no backend
+// work will be needed once the frontend order.game starts sending "CapCut".
+const relayCapcutOrderFazercards = (order) => {
+  if (order.game !== "CapCut") return Promise.resolve({ ok: false, reason: "not_capcut" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.CAPCUT, itemName: order.item });
+};
+
 module.exports = {
   CATEGORY_IDS,
   relayMlOrderFazercards,
   relayMcOrderFazercards,
   relayPubgOrderFazercards,
   relayNewStateOrderFazercards,
+  relayCapcutOrderFazercards,
   relayRacingOrderFazercards,
   validateGamePlayerId,
   findOfferForItem,

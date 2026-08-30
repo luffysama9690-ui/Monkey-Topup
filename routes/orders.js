@@ -2,7 +2,7 @@ const express = require("express");
 const pool = require("../db");
 const { notifyAdmin, orderDoneButton } = require("./telegram");
 const { logOrder } = require("./sheets");
-const { relayMlOrderFazercards, relayMcOrderFazercards, relayPubgOrderFazercards, relayNewStateOrderFazercards, relayRacingOrderFazercards, validateGamePlayerId } = require("../services/relay/relayFazercards");
+const { relayMlOrderFazercards, relayMcOrderFazercards, relayPubgOrderFazercards, relayNewStateOrderFazercards, relayRacingOrderFazercards, relayCapcutOrderFazercards, validateGamePlayerId } = require("../services/relay/relayFazercards");
 
 const router = express.Router();
 
@@ -101,6 +101,7 @@ router.post("/", async (req, res) => {
         relayPubgOrderFazercards(order),
         relayNewStateOrderFazercards(order),
         relayRacingOrderFazercards(order),
+        relayCapcutOrderFazercards(order),
       ]);
 
       const attempted = results.find((r) => r.reason !== undefined && !r.reason.startsWith("not_"));
