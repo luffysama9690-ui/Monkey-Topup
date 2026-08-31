@@ -26,6 +26,8 @@ const CATEGORY_IDS = {
   CAPCUT: "capcut",
   SAUSAGE_MAN: "sausage_man",
   WWM: "where_winds_meet",
+  BLOOD_STRIKE: "blood_strike",
+  FREE_FIRE_TH: "free_fire_th",
 };
 
 /**
@@ -183,6 +185,13 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     categoryId = CATEGORY_IDS.SAUSAGE_MAN;
   } else if (game === "Where Winds Meet") {
     categoryId = CATEGORY_IDS.WWM;
+  } else if (game === "Blood Strike") {
+    categoryId = CATEGORY_IDS.BLOOD_STRIKE;
+  } else if (game === "Free Fire") {
+    // Only Thailand is on FazerCards right now -- Global has no matching
+    // category, so it falls through to `undefined` and stays unchecked
+    // (fails open, same as any other unconnected game).
+    categoryId = /^Thailand /.test(item || "") ? CATEGORY_IDS.FREE_FIRE_TH : undefined;
   } else {
     const resolved = resolveRegionCategory(game, item);
     categoryId = resolved ? resolved.categoryId : undefined;
@@ -295,6 +304,35 @@ const relayWwmOrderFazercards = (order) => {
   });
 };
 
+// Blood Strike item labels ("51 BC", "Season Pass", "0.99 DEAL", ...)
+// match FazerCards' real offer names exactly -- no normalization needed.
+// Single "Player ID" field, region: Global.
+const relayBloodstrikeOrderFazercards = (order) => {
+  if (order.game !== "Blood Strike") return Promise.resolve({ ok: false, reason: "not_blood_strike" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.BLOOD_STRIKE, itemName: order.item });
+};
+
+// Free Fire: only the Thailand region exists on FazerCards right now (no
+// "Global" category there), so Global orders are intentionally left
+// unrelayed -- they stay on manual fulfillment like before. Thailand item
+// labels are prefixed ("Thailand 33 Diamonds", "Thailand Weekly Pack") to
+// tell the two regions apart in the shop UI; strip that prefix to match
+// FazerCards' real offer names ("33 Diamonds", "Weekly Pack").
+function normalizeFreeFireItemName(item) {
+  return (item || "").replace(/^Thailand /, "");
+}
+
+const relayFreeFireOrderFazercards = (order) => {
+  if (order.game !== "Free Fire") return Promise.resolve({ ok: false, reason: "not_free_fire" });
+  if (!/^Thailand /.test(order.item || "")) {
+    return Promise.resolve({ ok: false, reason: "not_free_fire_thailand" });
+  }
+  return relayViaFazercards(order, {
+    categoryId: CATEGORY_IDS.FREE_FIRE_TH,
+    itemName: normalizeFreeFireItemName(order.item),
+  });
+};
+
 module.exports = {
   CATEGORY_IDS,
   relayMlOrderFazercards,
@@ -304,6 +342,8 @@ module.exports = {
   relayCapcutOrderFazercards,
   relaySausageOrderFazercards,
   relayWwmOrderFazercards,
+  relayBloodstrikeOrderFazercards,
+  relayFreeFireOrderFazercards,
   relayRacingOrderFazercards,
   validateGamePlayerId,
   findOfferForItem,
