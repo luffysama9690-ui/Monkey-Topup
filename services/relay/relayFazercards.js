@@ -25,6 +25,7 @@ const CATEGORY_IDS = {
   RACING_LATAM: "racing_master_latam",
   CAPCUT: "capcut",
   SAUSAGE_MAN: "sausage_man",
+  WWM: "where_winds_meet",
 };
 
 /**
@@ -180,6 +181,8 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     categoryId = CATEGORY_IDS.CAPCUT;
   } else if (game === "Sausage Man") {
     categoryId = CATEGORY_IDS.SAUSAGE_MAN;
+  } else if (game === "Where Winds Meet") {
+    categoryId = CATEGORY_IDS.WWM;
   } else {
     const resolved = resolveRegionCategory(game, item);
     categoryId = resolved ? resolved.categoryId : undefined;
@@ -274,6 +277,24 @@ const relaySausageOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.SAUSAGE_MAN, itemName: order.item });
 };
 
+// Where Winds Meet: "Echo N" (frontend label) doesn't match FazerCards'
+// real offer name ("N Echo Beads"), so it needs its own item-name mapping
+// before handing off to findOfferForItem. Passes ("Monthly Pass", "Elite
+// Battle Pass", "Premium Battle Pass") match exactly already. Single
+// "Character ID" field, same as Sausage Man -- order.server_id is ignored.
+function normalizeWwmItemName(item) {
+  const echoMatch = /^Echo (\d+)$/.exec(item || "");
+  return echoMatch ? `${echoMatch[1]} Echo Beads` : item;
+}
+
+const relayWwmOrderFazercards = (order) => {
+  if (order.game !== "Where Winds Meet") return Promise.resolve({ ok: false, reason: "not_wwm" });
+  return relayViaFazercards(order, {
+    categoryId: CATEGORY_IDS.WWM,
+    itemName: normalizeWwmItemName(order.item),
+  });
+};
+
 module.exports = {
   CATEGORY_IDS,
   relayMlOrderFazercards,
@@ -282,6 +303,7 @@ module.exports = {
   relayNewStateOrderFazercards,
   relayCapcutOrderFazercards,
   relaySausageOrderFazercards,
+  relayWwmOrderFazercards,
   relayRacingOrderFazercards,
   validateGamePlayerId,
   findOfferForItem,
