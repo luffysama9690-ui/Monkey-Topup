@@ -49,6 +49,11 @@ CREATE TABLE IF NOT EXISTS users (
 -- Added later: THB wallet balance, separate from MMK. Safe to re-run.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS balance_thb BIGINT NOT NULL DEFAULT 0;
 
+-- Added later: tracks when each user last touched the app (updated on every
+-- GET /api/users/:telegramId call, including the frontend's periodic
+-- heartbeat) so the admin panel can show a real-time "active now" count.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY,
   telegram_id BIGINT NOT NULL REFERENCES users(telegram_id),

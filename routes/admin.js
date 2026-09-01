@@ -318,6 +318,31 @@ router.get("/users", async (req, res) => {
   }
 });
 
+// GET /api/admin/active-users?telegramId=...&minutes=5
+// "Active now" means the user's last_active_at (bumped on every
+// GET /api/users/:telegramId call, including the frontend's periodic
+// heartbeat) falls within the last `minutes` (default 5). Admin-only.
+router.get("/active-users", async (req, res) => {
+  const { telegramId } = req.query;
+  if (!isAdmin(telegramId)) {
+    return res.status(403).json({ error: "Not authorized" });
+  }
+  const minutes = Math.max(1, Math.min(60, parseInt(req.query.minutes, 10) || 5));
+  try {
+    const result = await pool.query(
+      `SELECT telegram_id, username, last_active_at
+       FROM users
+       WHERE last_active_at > now() - ($1 || ' minutes')::interval
+       ORDER BY last_active_at DESC`,
+      [minutes]
+    );
+    res.json({ minutes, count: result.rows.length, users: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load active users" });
+  }
+});
+
 // POST /api/admin/reset-spin
 // body: { telegramId, targetTelegramId }
 // Clears a user's last_spin_at so they can use the Lucky Spin (ကံစမ်းမဲ)
