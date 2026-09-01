@@ -302,9 +302,7 @@ const relayWwmOrderFazercards = (order) => {
     categoryId: CATEGORY_IDS.WWM,
     itemName: normalizeWwmItemName(order.item),
   });
-};
-
-// Blood Strike item labels ("51 BC", "Season Pass", "0.99 DEAL", ...)
+};// Blood Strike item labels ("51 BC", "Season Pass", "0.99 DEAL", ...)
 // match FazerCards' real offer names exactly -- no normalization needed.
 // Single "Player ID" field, region: Global.
 const relayBloodstrikeOrderFazercards = (order) => {
@@ -333,6 +331,29 @@ const relayFreeFireOrderFazercards = (order) => {
   });
 };
 
+// True if this (game, item) combination is one routes/orders.js will
+// attempt to auto-relay to FazerCards. Used at order-creation time (before
+// the relay actually runs) to decide whether the customer's fulfillment
+// receipt will be sent automatically -- if so, the admin "New Order"
+// notification skips the manual "✅ Done ပို့ရန်" button, since clicking it
+// too would send the receipt twice.
+function isAutoFulfilled(game, item) {
+  const autoGames = [
+    "Mobile Legends",
+    "Magic Chess GoGo",
+    "PUBG Mobile",
+    "PUBG New State",
+    "Racing Master",
+    "CapCut",
+    "Sausage Man",
+    "Where Winds Meet",
+    "Blood Strike",
+  ];
+  if (autoGames.includes(game)) return true;
+  if (game === "Free Fire" && /^Thailand /.test(item || "")) return true;
+  return false;
+}
+
 module.exports = {
   CATEGORY_IDS,
   relayMlOrderFazercards,
@@ -349,4 +370,5 @@ module.exports = {
   findOfferForItem,
   offerDiamondTotal,
   resolveRegionCategory,
+  isAutoFulfilled,
 };

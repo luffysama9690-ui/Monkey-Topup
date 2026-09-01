@@ -3,7 +3,21 @@ const pool = require("../db");
 const { notifyAdmin, orderDoneButton } = require("./telegram");
 const { logOrder } = require("./sheets");
 const { scheduleOrderStatusCheck } = require("../services/orderStatusChecker");
-const { relayMlOrderFazercards, relayMcOrderFazercards, relayPubgOrderFazercards, relayNewStateOrderFazercards, relayRacingOrderFazercards, relayCapcutOrderFazercards, relaySausageOrderFazercards, relayWwmOrderFazercards, relayBloodstrikeOrderFazercards, relayFreeFireOrderFazercards, validateGamePlayerId } = require("../services/relay/relayFazercards");
+const { sendOrderReceipt } = require("../services/orderReceipt");
+const {
+  relayMlOrderFazercards,
+  relayMcOrderFazercards,
+  relayPubgOrderFazercards,
+  relayNewStateOrderFazercards,
+  relayRacingOrderFazercards,
+  relayCapcutOrderFazercards,
+  relaySausageOrderFazercards,
+  relayWwmOrderFazercards,
+  relayBloodstrikeOrderFazercards,
+  relayFreeFireOrderFazercards,
+  validateGamePlayerId,
+  isAutoFulfilled,
+} = require("../services/relay/relayFazercards");
 
 const router = express.Router();
 
@@ -63,6 +77,8 @@ router.post("/", async (req, res) => {
 
     await client.query("COMMIT");
 
+    const autoFulfilled = isAutoFulfilled(game, item);
+
     notifyAdmin(
       `🛒 <b>New order</b>\n` +
         `Order ID: #${orderRes.rows[0].id}\n` +
@@ -72,8 +88,12 @@ router.post("/", async (req, res) => {
         `Qty: ${qty || 1}\n` +
         `Price: ${price} ${currency.toUpperCase()}\n` +
         `Pay method: ${payMethod}` +
-        (screenshotUrl ? `\nScreenshot: ${screenshotUrl}` : ""),
-      { replyMarkup: orderDoneButton(orderRes.rows[0].id) }
+        (screenshotUrl ? `\nScreenshot: ${screenshotUrl}` : "") +
+        (autoFulfilled ? `\n\n🤖 FazerCards auto-processing — receipt ကို customer ဆီ auto ပို့ပေးပါမယ်, manual ပို့စရာ မလိုပါ။` : ""),
+      // Auto-fulfilled orders skip the manual button entirely -- the
+      // receipt goes out on its own once the relay succeeds (see below),
+      // so a stray admin click here would just send it twice.
+      autoFulfilled ? {} : { replyMarkup: orderDoneButton(orderRes.rows[0].id) }
     );
 
     logOrder({
@@ -112,7 +132,17 @@ router.post("/", async (req, res) => {
       const attempted = results.find((r) => r.reason !== undefined && !r.reason.startsWith("not_"));
       if (attempted && !attempted.ok) {
         console.warn(`[relay] Order #${order.id} not relayed: ${attempted.reason}`);
-        // TODO: consider notifyAdmin() here so a failed relay doesn't go unnoticed.
+        // This game was supposed to auto-fulfill but the relay itself
+        // failed (as opposed to a later refund, which orderStatusChecker
+        // handles) -- fall back to notifying admin with the manual Done
+        // button so the receipt still goes out once it's sorted out by hand.
+        if (isAutoFulfilled(order.game, order.item)) {
+          notifyAdmin(
+            `⚠️ <b>Auto-relay failed</b>\nOrder #${order.id} (${order.item}) — reason: ${attempted.reason}\n` +
+              `FazerCards ကို relay လုပ်ရာမှာ error တက်ပါတယ် — sort ပြီးရင် "Done" ခလုတ်နှိပ်ပြီး customer ဆီ receipt ကို manual ပို့ပေးပါ။`,
+            { replyMarkup: orderDoneButton(order.id) }
+          );
+        }
       }
 
       // If the relay succeeded, save FazerCards' own order id and schedule
@@ -130,6 +160,18 @@ router.post("/", async (req, res) => {
           scheduleOrderStatusCheck(order.id);
         } catch (err) {
           console.error(`[relay] Order #${order.id}: failed to save fazercards_order_id: ${err.message}`);
+        }
+
+        // The relay went through -- send the fulfillment receipt right
+        // away instead of waiting on an admin to click "Done" manually.
+        // If FazerCards ends up refunding this a bit later (rare -- e.g. a
+        // per-account purchase limit), orderStatusChecker sends a separate
+        // refund notice; the two messages together are still clearer than
+        // silence, and this covers the overwhelmingly common instant-success case.
+        try {
+          await sendOrderReceipt(order);
+        } catch (err) {
+          console.error(`[relay] Order #${order.id}: failed to send auto-receipt: ${err.message}`);
         }
       }
     })();

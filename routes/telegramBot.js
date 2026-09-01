@@ -20,6 +20,7 @@ const {
   mainMenuKeyboard,
   MENU_BUTTONS,
 } = require("./telegram");
+const { sendOrderReceipt } = require("../services/orderReceipt");
 
 const router = express.Router();
 
@@ -151,27 +152,7 @@ router.post("/webhook", async (req, res) => {
       }
       const order = orderRes.rows[0];
 
-      const receipt =
-        `Order ID: #${order.id}\n` +
-        `Item: ${order.item}\n` +
-        (order.game_id ? `GameID: ${order.game_id}${order.server_id ? ` [${order.server_id}]` : ""}\n` : "") +
-        `Qty: ${order.qty}\n` +
-        `Price: ${order.price} ${String(order.currency).toUpperCase()}\n` +
-        `Pay method: ${order.pay_method || "-"}\n\n` +
-        `ဝယ်ယူအားပေးမှုအတွက် ကျေးဇူးတင်ပါသည် 🙏`;
-
-      await sendTelegramMessage(order.telegram_id, receipt);
-
-      // Drop a copy into the customer's in-app inbox too.
-      try {
-        await pool.query(`INSERT INTO messages (telegram_id, text, icon) VALUES ($1, $2, $3)`, [
-          order.telegram_id,
-          receipt,
-          "✅",
-        ]);
-      } catch (err) {
-        console.error("telegramBot: failed to save in-app receipt message", err.message);
-      }
+      await sendOrderReceipt(order);
 
       // Remove the button so it can't be pressed twice, and let the admin
       // know it went through.
