@@ -1,4 +1,12 @@
-const { getOffers, createTopupOrder, validatePlayerId } = require("./fazercards");
+const {
+  getOffers,
+  createTopupOrder,
+  validatePlayerId,
+  buyTelegramStars,
+  buyTelegramPremium,
+  checkSteamLogin,
+  buySteamTopup,
+} = require("./fazercards");
 
 /**
  * Category IDs confirmed against FazerCards' real API catalog
@@ -28,6 +36,7 @@ const CATEGORY_IDS = {
   WWM: "where_winds_meet",
   BLOOD_STRIKE: "blood_strike",
   FREE_FIRE_TH: "free_fire_th",
+  HONOR_OF_KINGS: "honor_of_kings",
 };
 
 /**
@@ -174,6 +183,21 @@ function buildFields(fieldsSchema, order) {
  *   { checked: true, valid: null, error }               -- couldn't check (network/API issue) -- caller should fail OPEN, just log it
  */
 async function validateGamePlayerId(game, gameId, serverId, item) {
+  // Steam doesn't go through the /topups family, so it needs its own path:
+  // FazerCards' check-login call tells us up front whether this Steam
+  // account can actually be refilled, before we touch the customer's
+  // wallet balance.
+  if (game === "Steam") {
+    if (!gameId) return { checked: false };
+    try {
+      const result = await checkSteamLogin(gameId);
+      return { checked: true, valid: !!result.can_refill };
+    } catch (err) {
+      console.error(`[fazercards] Steam login check failed: ${err.message}`);
+      return { checked: false, valid: null };
+    }
+  }
+
   let categoryId;
   if (game === "PUBG Mobile") {
     categoryId = CATEGORY_IDS.PUBG_AUTO;
@@ -187,6 +211,8 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     categoryId = CATEGORY_IDS.WWM;
   } else if (game === "Blood Strike") {
     categoryId = CATEGORY_IDS.BLOOD_STRIKE;
+  } else if (game === "Honor of Kings") {
+    categoryId = CATEGORY_IDS.HONOR_OF_KINGS;
   } else if (game === "Free Fire") {
     // Only Thailand is on FazerCards right now -- Global has no matching
     // category, so it falls through to `undefined` and stays unchecked
@@ -310,6 +336,84 @@ const relayBloodstrikeOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.BLOOD_STRIKE, itemName: order.item });
 };
 
+// Honor of Kings item labels ("16 Tokens", "Weekly Card", "Double Token
+// Lucky Bag", ...) match FazerCards' real offer names exactly -- no
+// normalization needed. Single "Player ID" field.
+const relayHokOrderFazercards = (order) => {
+  if (order.game !== "Honor of Kings") return Promise.resolve({ ok: false, reason: "not_hok" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.HONOR_OF_KINGS, itemName: order.item });
+};
+
+// Telegram Stars/Premium don't go through the /topups family at all --
+// FazerCards exposes dedicated POST /telegram/stars/buy and
+// /telegram/premium/buy endpoints instead (see reseller.fazercards.com
+// /en/docs). Item labels are "⭐ N Stars" / "🎁 Premium N Months" (see
+// TELEGRAM_STARS/TELEGRAM_PREMIUM in App.jsx); order.game_id holds the
+// Telegram username the frontend collected, with or without a leading "@".
+function parseTelegramItem(item) {
+  const starMatch = /(\d+)\s*Stars/i.exec(item || "");
+  if (starMatch) return { kind: "stars", quantity: parseInt(starMatch[1], 10) };
+  const premMatch = /Premium\s*(\d+)\s*Months?/i.exec(item || "");
+  if (premMatch) return { kind: "premium", months: parseInt(premMatch[1], 10) };
+  return null;
+}
+
+const relayTelegramOrderFazercards = async (order) => {
+  if (order.game !== "Telegram") return { ok: false, reason: "not_telegram" };
+  if (!order.game_id) {
+    console.error(`[fazercards] Order #${order.id} missing Telegram username -- skipping relay`);
+    return { ok: false, reason: "missing_ids" };
+  }
+  const parsed = parseTelegramItem(order.item);
+  if (!parsed) {
+    console.error(`[fazercards] Order #${order.id}: couldn't parse Telegram item "${order.item}"`);
+    return { ok: false, reason: "unparseable_item" };
+  }
+  const username = order.game_id.startsWith("@") ? order.game_id : `@${order.game_id}`;
+  try {
+    const result =
+      parsed.kind === "stars"
+        ? await buyTelegramStars(username, parsed.quantity)
+        : await buyTelegramPremium(username, parsed.months);
+    console.log(`[fazercards] Order #${order.id} -> Telegram ${parsed.kind} order ${result.order && result.order.id}`);
+    return { ok: true, fazercardsOrder: result.order };
+  } catch (err) {
+    console.error(`[fazercards] Telegram order #${order.id} failed: ${err.message}`);
+    return { ok: false, reason: "relay_failed", error: err.message };
+  }
+};
+
+// Steam wallet top-up. FazerCards needs the Steam account *login*
+// (username) rather than a numeric id -- order.game_id holds that (see the
+// purchase modal's Steam-specific field in App.jsx). Item labels are
+// "Steam Global {usd} USD" (see STEAM_PACKAGES in App.jsx); FazerCards is
+// always paid in USD regardless of which currency the customer paid us in.
+function parseSteamUsdAmount(item) {
+  const m = /(\d+(?:\.\d+)?)\s*USD/i.exec(item || "");
+  return m ? Number(m[1]) : null;
+}
+
+const relaySteamOrderFazercards = async (order) => {
+  if (order.game !== "Steam") return { ok: false, reason: "not_steam" };
+  if (!order.game_id) {
+    console.error(`[fazercards] Order #${order.id} missing Steam login -- skipping relay`);
+    return { ok: false, reason: "missing_ids" };
+  }
+  const usdAmount = parseSteamUsdAmount(order.item);
+  if (usdAmount == null) {
+    console.error(`[fazercards] Order #${order.id}: couldn't parse Steam USD amount from "${order.item}"`);
+    return { ok: false, reason: "unparseable_item" };
+  }
+  try {
+    const result = await buySteamTopup(order.game_id, "USD", usdAmount, `monkeytopup-order-${order.id}`);
+    console.log(`[fazercards] Order #${order.id} -> Steam top-up order ${result.order && result.order.id} ($${usdAmount})`);
+    return { ok: true, fazercardsOrder: result.order };
+  } catch (err) {
+    console.error(`[fazercards] Steam order #${order.id} failed: ${err.message}`);
+    return { ok: false, reason: "relay_failed", error: err.message };
+  }
+};
+
 // Free Fire: only the Thailand region exists on FazerCards right now (no
 // "Global" category there), so Global orders are intentionally left
 // unrelayed -- they stay on manual fulfillment like before. Thailand item
@@ -348,6 +452,9 @@ function isAutoFulfilled(game, item) {
     "Sausage Man",
     "Where Winds Meet",
     "Blood Strike",
+    "Telegram",
+    "Steam",
+    "Honor of Kings",
   ];
   if (autoGames.includes(game)) return true;
   if (game === "Free Fire" && /^Thailand /.test(item || "")) return true;
@@ -365,6 +472,9 @@ module.exports = {
   relayWwmOrderFazercards,
   relayBloodstrikeOrderFazercards,
   relayFreeFireOrderFazercards,
+  relayHokOrderFazercards,
+  relayTelegramOrderFazercards,
+  relaySteamOrderFazercards,
   relayRacingOrderFazercards,
   validateGamePlayerId,
   findOfferForItem,

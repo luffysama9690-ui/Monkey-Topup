@@ -82,10 +82,50 @@ async function getBalance() {
   return fazerFetch("/balance");
 }
 
+// ---- Telegram Stars & Premium ----
+// Separate from the /topups family entirely -- see reseller.fazercards.com
+// /en/docs, "Telegram" section.
+async function buyTelegramStars(telegramUsername, quantity) {
+  return fazerFetch("/telegram/stars/buy", {
+    method: "POST",
+    body: { telegram_username: telegramUsername, quantity },
+  });
+}
+
+async function buyTelegramPremium(telegramUsername, months) {
+  return fazerFetch("/telegram/premium/buy", {
+    method: "POST",
+    body: { telegram_username: telegramUsername, months },
+  });
+}
+
+// ---- Steam wallet top-up ----
+// Docs: reseller.fazercards.com/en/docs, "Steam" section (steam-topup
+// routes -- not steam-gifts, which is a different product: gifting a
+// specific game via a trade invite link rather than crediting a wallet).
+async function checkSteamLogin(steamLogin) {
+  return fazerFetch("/steam-topup/check-login", {
+    method: "POST",
+    body: { steamLogin },
+  });
+}
+
+async function buySteamTopup(steamLogin, currency, amount, idempotencyKey) {
+  return fazerFetch("/steam-topup/order", {
+    method: "POST",
+    idempotencyKey,
+    body: { steamLogin, currency, amount },
+  });
+}
+
 module.exports = {
   getOffers,
   validatePlayerId,
   createTopupOrder,
   getOrderStatus,
   getBalance,
+  buyTelegramStars,
+  buyTelegramPremium,
+  checkSteamLogin,
+  buySteamTopup,
 };

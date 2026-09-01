@@ -15,6 +15,9 @@ const {
   relayWwmOrderFazercards,
   relayBloodstrikeOrderFazercards,
   relayFreeFireOrderFazercards,
+  relayHokOrderFazercards,
+  relayTelegramOrderFazercards,
+  relaySteamOrderFazercards,
   validateGamePlayerId,
   isAutoFulfilled,
 } = require("../services/relay/relayFazercards");
@@ -127,6 +130,9 @@ router.post("/", async (req, res) => {
         relayWwmOrderFazercards(order),
         relayBloodstrikeOrderFazercards(order),
         relayFreeFireOrderFazercards(order),
+        relayHokOrderFazercards(order),
+        relayTelegramOrderFazercards(order),
+        relaySteamOrderFazercards(order),
       ]);
 
       const attempted = results.find((r) => r.reason !== undefined && !r.reason.startsWith("not_"));
