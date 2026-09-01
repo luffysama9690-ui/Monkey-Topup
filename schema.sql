@@ -54,6 +54,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS balance_thb BIGINT NOT NULL DEFAULT 0
 -- heartbeat) so the admin panel can show a real-time "active now" count.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
 
+-- Added later: FazerCards' own order id, saved once a relay call succeeds,
+-- so services/orderStatusChecker.js can poll it ~60s later and catch
+-- failures that only surface *after* the initial "order created" response
+-- (e.g. a per-account purchase limit that gets discovered and auto-refunded
+-- a few seconds in -- see the 2569-09-01 Weekly Pass incident).
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS fazercards_order_id TEXT;
+
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY,
   telegram_id BIGINT NOT NULL REFERENCES users(telegram_id),

@@ -2,6 +2,7 @@ const express = require("express");
 const pool = require("../db");
 const { notifyAdmin, orderDoneButton } = require("./telegram");
 const { logOrder } = require("./sheets");
+const { scheduleOrderStatusCheck } = require("../services/orderStatusChecker");
 const { relayMlOrderFazercards, relayMcOrderFazercards, relayPubgOrderFazercards, relayNewStateOrderFazercards, relayRacingOrderFazercards, relayCapcutOrderFazercards, relaySausageOrderFazercards, relayWwmOrderFazercards, relayBloodstrikeOrderFazercards, relayFreeFireOrderFazercards, validateGamePlayerId } = require("../services/relay/relayFazercards");
 
 const router = express.Router();
@@ -112,6 +113,24 @@ router.post("/", async (req, res) => {
       if (attempted && !attempted.ok) {
         console.warn(`[relay] Order #${order.id} not relayed: ${attempted.reason}`);
         // TODO: consider notifyAdmin() here so a failed relay doesn't go unnoticed.
+      }
+
+      // If the relay succeeded, save FazerCards' own order id and schedule
+      // a follow-up check ~60s later — the initial "created" response
+      // doesn't guarantee the order actually goes through on FazerCards'
+      // end (e.g. a per-account purchase limit can auto-refund it a few
+      // seconds in). See services/orderStatusChecker.js.
+      const succeeded = results.find((r) => r.ok && r.fazercardsOrder && r.fazercardsOrder.id);
+      if (succeeded) {
+        try {
+          await pool.query("UPDATE orders SET fazercards_order_id = $1 WHERE id = $2", [
+            succeeded.fazercardsOrder.id,
+            order.id,
+          ]);
+          scheduleOrderStatusCheck(order.id);
+        } catch (err) {
+          console.error(`[relay] Order #${order.id}: failed to save fazercards_order_id: ${err.message}`);
+        }
       }
     })();
   } catch (err) {
