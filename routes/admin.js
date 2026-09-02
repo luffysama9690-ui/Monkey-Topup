@@ -215,25 +215,40 @@ router.post("/broadcast", async (req, res) => {
 
 // POST /api/admin/set-reseller
 // body: { telegramId, targetTelegramId, isReseller }
-// Marks (or unmarks) a user as a reseller. Reseller pricing itself is a flat
-// app-wide discount applied on the frontend (see RESELLER_DISCOUNT_PERCENT
-// in App.jsx / VITE_RESELLER_DISCOUNT_PERCENT) — this endpoint just flips
-// the flag that turns that discount on for a given user.
+// Marks (or unmarks) a user as a reseller. `targetTelegramId` accepts
+// either a numeric Telegram ID or a Telegram @username (with or without
+// the "@") -- admins usually only know the username, not the numeric id,
+// so username lookup is the primary path; numeric ids still work too.
+// Reseller pricing itself is a flat app-wide discount applied on the
+// frontend (see RESELLER_DISCOUNT_PERCENT in App.jsx /
+// VITE_RESELLER_DISCOUNT_PERCENT) — this endpoint just flips the flag that
+// turns that discount on for a given user.
 router.post("/set-reseller", async (req, res) => {
   const { telegramId, targetTelegramId, isReseller } = req.body;
   if (!isAdmin(telegramId)) {
     return res.status(403).json({ error: "Not authorized" });
   }
-  if (!targetTelegramId) {
+  const target = String(targetTelegramId || "").trim();
+  if (!target) {
     return res.status(400).json({ error: "targetTelegramId is required" });
   }
+  const isNumericId = /^\d+$/.test(target);
   try {
-    const result = await pool.query(
-      "UPDATE users SET is_reseller = $1 WHERE telegram_id = $2 RETURNING telegram_id, is_reseller",
-      [!!isReseller, targetTelegramId]
-    );
+    const result = isNumericId
+      ? await pool.query(
+          "UPDATE users SET is_reseller = $1 WHERE telegram_id = $2 RETURNING telegram_id, username, is_reseller",
+          [!!isReseller, target]
+        )
+      : await pool.query(
+          "UPDATE users SET is_reseller = $1 WHERE username ILIKE $2 RETURNING telegram_id, username, is_reseller",
+          [!!isReseller, target.replace(/^@/, "")]
+        );
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "User not found — they need to have opened the app at least once" });
+      return res.status(404).json({
+        error: isNumericId
+          ? "User not found — they need to have opened the app at least once"
+          : "Username not found — check the spelling, or they need to have opened the app at least once (username is only known once they've visited)",
+      });
     }
     res.json({ ok: true, user: result.rows[0] });
   } catch (err) {
