@@ -450,6 +450,35 @@ router.get("/active-users", async (req, res) => {
   }
 });
 
+// GET /api/admin/user-counts?telegramId=...
+// Total registered users, split by how they signed up: Telegram (real,
+// positive telegram_id) vs website (synthetic negative telegram_id -- see
+// schema.sql). Admin-only.
+router.get("/user-counts", async (req, res) => {
+  const { telegramId } = req.query;
+  if (!isAdmin(telegramId)) {
+    return res.status(403).json({ error: "Not authorized" });
+  }
+  try {
+    const result = await pool.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE telegram_id > 0) AS telegram_count,
+         COUNT(*) FILTER (WHERE telegram_id < 0) AS website_count,
+         COUNT(*) AS total
+       FROM users`
+    );
+    const row = result.rows[0];
+    res.json({
+      total: Number(row.total),
+      telegramCount: Number(row.telegram_count),
+      websiteCount: Number(row.website_count),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load user counts" });
+  }
+});
+
 // POST /api/admin/reset-spin
 // body: { telegramId, targetTelegramId }
 // Clears a user's last_spin_at so they can use the Lucky Spin (ကံစမ်းမဲ)
