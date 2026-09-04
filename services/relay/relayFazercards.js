@@ -51,6 +51,13 @@ const CATEGORY_IDS = {
   IDENTITY_V: "identity_v",
   LORDS_MOBILE: "lords_mobile",
   STUMBLE_GUYS: "stumble_guys",
+  STATE_OF_SURVIVAL: "state_of_survival",
+  WATCHER_OF_REALMS: "watcher_of_realms",
+  BLOCKMAN_GO: "blockman_go",
+  GROWTOPIA: "growtopia",
+  EGGY_PARTY: "eggy_party",
+  R6_MOBILE_GLOBAL: "r6_mobile_global",
+  TFT_MOBILE_TH: "tft_mobile_th",
 };
 
 /**
@@ -253,6 +260,20 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     categoryId = CATEGORY_IDS.LORDS_MOBILE;
   } else if (game === "Stumble Guys") {
     categoryId = CATEGORY_IDS.STUMBLE_GUYS;
+  } else if (game === "State of Survival") {
+    categoryId = CATEGORY_IDS.STATE_OF_SURVIVAL;
+  } else if (game === "Watcher of Realms") {
+    categoryId = CATEGORY_IDS.WATCHER_OF_REALMS;
+  } else if (game === "Blockman Go") {
+    categoryId = CATEGORY_IDS.BLOCKMAN_GO;
+  } else if (game === "Growtopia") {
+    categoryId = CATEGORY_IDS.GROWTOPIA;
+  } else if (game === "Eggy Party") {
+    categoryId = CATEGORY_IDS.EGGY_PARTY;
+  } else if (game === "Rainbow Six Mobile (Global)") {
+    categoryId = CATEGORY_IDS.R6_MOBILE_GLOBAL;
+  } else if (game === "TFT Mobile (TH)") {
+    categoryId = CATEGORY_IDS.TFT_MOBILE_TH;
   } else if (game === "Free Fire") {
     // Only Thailand is on FazerCards right now -- Global has no matching
     // category, so it falls through to `undefined` and stays unchecked
@@ -470,6 +491,46 @@ const relayStumbleGuysOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.STUMBLE_GUYS, itemName: order.item });
 };
 
+// State of Survival, Blockman Go, Growtopia, Eggy Party, Rainbow Six
+// Mobile (Global), TFT Mobile (TH) -- all single ID field, no server.
+// Watcher of Realms is the one exception here -- needs Player ID + Server
+// ID, same two-field shape as Mobile Legends (a visible Server ID input,
+// not hardcoded like Genshin/HSR/Identity V).
+const relayStateOfSurvivalOrderFazercards = (order) => {
+  if (order.game !== "State of Survival") return Promise.resolve({ ok: false, reason: "not_state_of_survival" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.STATE_OF_SURVIVAL, itemName: order.item });
+};
+
+const relayWatcherOfRealmsOrderFazercards = (order) => {
+  if (order.game !== "Watcher of Realms") return Promise.resolve({ ok: false, reason: "not_watcher_of_realms" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.WATCHER_OF_REALMS, itemName: order.item });
+};
+
+const relayBlockmanGoOrderFazercards = (order) => {
+  if (order.game !== "Blockman Go") return Promise.resolve({ ok: false, reason: "not_blockman_go" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.BLOCKMAN_GO, itemName: order.item });
+};
+
+const relayGrowtopiaOrderFazercards = (order) => {
+  if (order.game !== "Growtopia") return Promise.resolve({ ok: false, reason: "not_growtopia" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.GROWTOPIA, itemName: order.item });
+};
+
+const relayEggyPartyOrderFazercards = (order) => {
+  if (order.game !== "Eggy Party") return Promise.resolve({ ok: false, reason: "not_eggy_party" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.EGGY_PARTY, itemName: order.item });
+};
+
+const relayR6MobileGlobalOrderFazercards = (order) => {
+  if (order.game !== "Rainbow Six Mobile (Global)") return Promise.resolve({ ok: false, reason: "not_r6_mobile_global" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.R6_MOBILE_GLOBAL, itemName: order.item });
+};
+
+const relayTftMobileThOrderFazercards = (order) => {
+  if (order.game !== "TFT Mobile (TH)") return Promise.resolve({ ok: false, reason: "not_tft_mobile_th" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.TFT_MOBILE_TH, itemName: order.item });
+};
+
 // Telegram Stars/Premium don't go through the /topups family at all --
 // FazerCards exposes dedicated POST /telegram/stars/buy and
 // /telegram/premium/buy endpoints instead (see reseller.fazercards.com
@@ -594,6 +655,13 @@ function isAutoFulfilled(game, item) {
     "Identity V",
     "Lords Mobile",
     "Stumble Guys",
+    "State of Survival",
+    "Watcher of Realms",
+    "Blockman Go",
+    "Growtopia",
+    "Eggy Party",
+    "Rainbow Six Mobile (Global)",
+    "TFT Mobile (TH)",
   ];
   if (autoGames.includes(game)) return true;
   if (game === "Free Fire" && /^Thailand /.test(item || "")) return true;
@@ -625,6 +693,13 @@ module.exports = {
   relayIdentityVOrderFazercards,
   relayLordsMobileOrderFazercards,
   relayStumbleGuysOrderFazercards,
+  relayStateOfSurvivalOrderFazercards,
+  relayWatcherOfRealmsOrderFazercards,
+  relayBlockmanGoOrderFazercards,
+  relayGrowtopiaOrderFazercards,
+  relayEggyPartyOrderFazercards,
+  relayR6MobileGlobalOrderFazercards,
+  relayTftMobileThOrderFazercards,
   relayTelegramOrderFazercards,
   relaySteamOrderFazercards,
   relayRacingOrderFazercards,
