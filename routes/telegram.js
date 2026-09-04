@@ -189,66 +189,18 @@ async function notifyAdmin(text, options = {}) {
 //   [ 💰 Deposit                ]   <- full width
 //   [ 👤 Profile ] [ 📦 History ]   <- two side-by-side
 //   [ 📞 Contact to Admin       ]   <- full width
-//   [ 🎡 Lucky Spin             ]   <- full width
 // Unlike inline buttons, this never disappears and never requires the
 // customer to type /start again -- it shows up automatically as soon as
 // they send their first message.
-//
-// Spin is a plain text button, same as the others -- not a `web_app`
-// keyboard button -- because `web_app` buttons only work with an HTTPS URL
-// that's registered as the bot's exact Mini App domain, and MINI_APP_URL is
-// often set to a t.me/<bot>/<shortname> link instead (see the comment atop
-// this file), which isn't valid there. Pressing it is handled in
-// telegramBot.js, which replies with an inline OPEN button (openAppButton
-// style) that deep-links into the spin screen.
 function mainMenuKeyboard() {
   return {
     keyboard: [
       ["💰 Deposit"],
       ["👤 Profile", "📦 History"],
       ["📞 Contact to Admin"],
-      ["🎡 Lucky Spin"],
     ],
     resize_keyboard: true,
     is_persistent: true,
-  };
-}
-
-// Builds the inline "OPEN" button for the spin screen specifically -- same
-// idea as openAppButton(), but deep-links straight into the spin screen
-// instead of the shop. Handles both MINI_APP_URL formats (see the comment
-// atop this file):
-//   - t.me Mini App link -> "?startapp=spin", which Telegram turns into
-//     WebApp.initDataUnsafe.start_param when it opens the Mini App
-//   - direct Vercel URL  -> "?view=spin", read directly from the page URL
-// Both are read in Money_topup_front/src/App.jsx. Returns undefined (same
-// as openAppButton) if MINI_APP_URL isn't configured, so the caller can
-// fall back to a plain text message instead of a broken button.
-function openSpinButton(label = "🎡 Spin ကစားရန်") {
-  const url = process.env.MINI_APP_URL;
-  if (!url) return undefined;
-  const separator = url.includes("?") ? "&" : "?";
-  const isTmeLink = /^https:\/\/t\.me\//i.test(url);
-  const spinUrl = isTmeLink ? `${url}${separator}startapp=spin` : `${url}${separator}view=spin`;
-  // Unlike openAppButton(), this always uses "web_app" for non-t.me URLs --
-  // never a plain "url" button -- regardless of MINI_APP_BUTTON_TYPE.
-  // A plain "url" button opens the link in an external/in-app browser tab,
-  // which is a brand new page with no access to Telegram's WebApp SDK, so
-  // window.Telegram.WebApp.initDataUnsafe.user is empty there and the app
-  // shows the login screen as if it's a stranger, even on the customer's
-  // own phone -- which is exactly the "opens a new window, looks like a
-  // new account" bug this fixes. t.me Mini App links are the one exception:
-  // Telegram recognizes and relaunches those as the Mini App itself even
-  // through a plain "url" button, so they're left as-is.
-  //
-  // Note: web_app buttons only work if MINI_APP_URL's domain has been
-  // registered as this bot's Mini App domain via BotFather (/setdomain) --
-  // see the setup steps given earlier. Until that's done, Telegram will
-  // reject sending this message entirely (sendTelegramMessage below just
-  // logs the failure and returns false, so it fails loudly in the Render
-  // logs rather than silently breaking sessions again).
-  return {
-    inline_keyboard: [[isTmeLink ? { text: label, url: spinUrl } : { text: label, web_app: { url: spinUrl } }]],
   };
 }
 
@@ -259,7 +211,6 @@ const MENU_BUTTONS = {
   PROFILE: "👤 Profile",
   HISTORY: "📦 History",
   SUPPORT: "📞 Contact to Admin",
-  SPIN: "🎡 Lucky Spin",
 };
 
 // Edits the text (and optionally the keyboard) of an existing bot message —
@@ -296,7 +247,6 @@ module.exports = {
   sendTelegramMessage,
   sendTelegramPhoto,
   openAppButton,
-  openSpinButton,
   orderDoneButton,
   answerCallbackQuery,
   editMessageReplyMarkup,
