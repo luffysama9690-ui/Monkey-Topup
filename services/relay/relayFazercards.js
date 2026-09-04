@@ -42,6 +42,9 @@ const CATEGORY_IDS = {
   VALORANT_TH: "valorant_th",
   LOL_TH: "lol_th",
   CODM_SGMY: "codm_garena_sgmy",
+  GENSHIN_GLOBAL: "genshin_impact_global",
+  HONKAI_STAR_RAIL_GLOBAL: "honkai_star_rail_global",
+  HONKAI_IMPACT_3RD_ASIA: "honkai_impact_3rd_asia",
 };
 
 /**
@@ -220,6 +223,18 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     categoryId = CATEGORY_IDS.HONOR_OF_KINGS;
   } else if (game === "Sky: Children of the Light") {
     categoryId = CATEGORY_IDS.SKY_COTL;
+  } else if (game === "Valorant (TH)") {
+    categoryId = CATEGORY_IDS.VALORANT_TH;
+  } else if (game === "League of Legends (TH)") {
+    categoryId = CATEGORY_IDS.LOL_TH;
+  } else if (game === "Call of Duty Mobile (SG/MY)") {
+    categoryId = CATEGORY_IDS.CODM_SGMY;
+  } else if (game === "Genshin Impact (Global)") {
+    categoryId = CATEGORY_IDS.GENSHIN_GLOBAL;
+  } else if (game === "Honkai: Star Rail (Global)") {
+    categoryId = CATEGORY_IDS.HONKAI_STAR_RAIL_GLOBAL;
+  } else if (game === "Honkai Impact 3rd (Asia)") {
+    categoryId = CATEGORY_IDS.HONKAI_IMPACT_3RD_ASIA;
   } else if (game === "Free Fire") {
     // Only Thailand is on FazerCards right now -- Global has no matching
     // category, so it falls through to `undefined` and stays unchecked
@@ -382,6 +397,27 @@ const relayCodmSgmyOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.CODM_SGMY, itemName: order.item });
 };
 
+// Genshin Impact / Honkai: Star Rail need a "server" field FazerCards'
+// side -- the frontend hardcodes order.server_id to "asia" for these two
+// (no server picker shown to the customer), and buildFields() already maps
+// any field whose label contains "server" to order.server_id generically,
+// so no special-casing is needed here beyond the category id itself.
+// Honkai Impact 3rd (Asia) only needs a Player ID, same as Sky/HoK.
+const relayGenshinGlobalOrderFazercards = (order) => {
+  if (order.game !== "Genshin Impact (Global)") return Promise.resolve({ ok: false, reason: "not_genshin_global" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.GENSHIN_GLOBAL, itemName: order.item });
+};
+
+const relayHonkaiStarRailGlobalOrderFazercards = (order) => {
+  if (order.game !== "Honkai: Star Rail (Global)") return Promise.resolve({ ok: false, reason: "not_honkai_star_rail_global" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.HONKAI_STAR_RAIL_GLOBAL, itemName: order.item });
+};
+
+const relayHonkaiImpact3rdAsiaOrderFazercards = (order) => {
+  if (order.game !== "Honkai Impact 3rd (Asia)") return Promise.resolve({ ok: false, reason: "not_honkai_impact_3rd_asia" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.HONKAI_IMPACT_3RD_ASIA, itemName: order.item });
+};
+
 // Telegram Stars/Premium don't go through the /topups family at all --
 // FazerCards exposes dedicated POST /telegram/stars/buy and
 // /telegram/premium/buy endpoints instead (see reseller.fazercards.com
@@ -497,6 +533,9 @@ function isAutoFulfilled(game, item) {
     "Valorant (TH)",
     "League of Legends (TH)",
     "Call of Duty Mobile (SG/MY)",
+    "Genshin Impact (Global)",
+    "Honkai: Star Rail (Global)",
+    "Honkai Impact 3rd (Asia)",
   ];
   if (autoGames.includes(game)) return true;
   if (game === "Free Fire" && /^Thailand /.test(item || "")) return true;
@@ -519,6 +558,9 @@ module.exports = {
   relayValorantThOrderFazercards,
   relayLolThOrderFazercards,
   relayCodmSgmyOrderFazercards,
+  relayGenshinGlobalOrderFazercards,
+  relayHonkaiStarRailGlobalOrderFazercards,
+  relayHonkaiImpact3rdAsiaOrderFazercards,
   relayTelegramOrderFazercards,
   relaySteamOrderFazercards,
   relayRacingOrderFazercards,
