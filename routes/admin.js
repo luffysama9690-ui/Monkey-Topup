@@ -257,6 +257,49 @@ router.post("/set-reseller", async (req, res) => {
   }
 });
 
+// POST /api/admin/set-banned
+// body: { telegramId, targetTelegramId, isBanned, reason }
+// Blocks (or unblocks) a user from placing new orders or deposits, without
+// deleting their account or history. `targetTelegramId` accepts either a
+// numeric Telegram ID or a Telegram @username, same lookup rules as
+// set-reseller above. Banned users still see the app itself, but
+// routes/orders.js and routes/deposits.js reject any new order/deposit for
+// them, and the frontend shows a full "account suspended" screen instead of
+// the shop as soon as GET /api/users/:telegramId reports is_banned: true.
+router.post("/set-banned", async (req, res) => {
+  const { telegramId, targetTelegramId, isBanned, reason } = req.body;
+  if (!isAdmin(telegramId)) {
+    return res.status(403).json({ error: "Not authorized" });
+  }
+  const target = String(targetTelegramId || "").trim();
+  if (!target) {
+    return res.status(400).json({ error: "targetTelegramId is required" });
+  }
+  const isNumericId = /^\d+$/.test(target);
+  try {
+    const result = isNumericId
+      ? await pool.query(
+          "UPDATE users SET is_banned = $1, banned_reason = $2 WHERE telegram_id = $3 RETURNING telegram_id, username, is_banned, banned_reason",
+          [!!isBanned, isBanned ? reason || null : null, target]
+        )
+      : await pool.query(
+          "UPDATE users SET is_banned = $1, banned_reason = $2 WHERE username ILIKE $3 RETURNING telegram_id, username, is_banned, banned_reason",
+          [!!isBanned, isBanned ? reason || null : null, target.replace(/^@/, "")]
+        );
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: isNumericId
+          ? "User not found — they need to have opened the app at least once"
+          : "Username not found — check the spelling, or they need to have opened the app at least once (username is only known once they've visited)",
+      });
+    }
+    res.json({ ok: true, user: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update banned status" });
+  }
+});
+
 // POST /api/admin/adjust-balance
 // body: { telegramId, targetTelegramId, currency: "mmk"|"thb", amount, reason }
 // `amount` can be positive (add) or negative (deduct) — use this to fix
@@ -323,7 +366,7 @@ router.get("/users", async (req, res) => {
   }
   try {
     const result = await pool.query(
-      `SELECT telegram_id, balance_mmk, balance_thb, is_reseller
+      `SELECT telegram_id, username, balance_mmk, balance_thb, is_reseller, is_banned
        FROM users ORDER BY balance_mmk DESC, telegram_id ASC`
     );
     res.json(result.rows);

@@ -81,8 +81,6 @@ CREATE TABLE IF NOT EXISTS messages (
 -- real one. All of it is safe to run again.
 -- ============================================================
 
-CREATE SEQUENCE IF NOT EXISTS web_user_id_seq START 1;
-
 ALTER TABLE users ALTER COLUMN telegram_id DROP NOT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
@@ -97,3 +95,11 @@ BEGIN
       CHECK (telegram_id IS NOT NULL OR email IS NOT NULL);
   END IF;
 END $$;
+
+-- Added later: lets an admin block a customer from placing orders or
+-- deposits without deleting their account/history. Checked in
+-- routes/orders.js and routes/deposits.js before any write; the frontend
+-- also reads it (GET /api/users/:telegramId) to show a full "account
+-- suspended" screen instead of the shop. Safe to re-run.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_reason TEXT;

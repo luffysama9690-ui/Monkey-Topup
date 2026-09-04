@@ -36,6 +36,11 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "telegramId, game, item, price, and currency are required" });
   }
 
+  const banCheck = await pool.query("SELECT is_banned FROM users WHERE telegram_id = $1", [telegramId]);
+  if (banCheck.rows[0]?.is_banned) {
+    return res.status(403).json({ error: "account_banned", message: "သင့် account ကို ယာယီ ဆိုင်းငံ့ထားပါသည် — Admin ကို ဆက်သွယ်ပါ" });
+  }
+
   // Catch a mistyped Player ID / Server ID before we touch the customer's
   // wallet balance. Only runs for games FazerCards covers (ML/MCGG/PUBG);
   // other games just skip straight through (checked: false).

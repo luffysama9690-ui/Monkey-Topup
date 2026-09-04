@@ -18,6 +18,11 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "currency must be 'mmk' or 'thb'" });
   }
 
+  const banCheck = await pool.query("SELECT is_banned FROM users WHERE telegram_id = $1", [telegramId]);
+  if (banCheck.rows[0]?.is_banned) {
+    return res.status(403).json({ error: "account_banned", message: "သင့် account ကို ယာယီ ဆိုင်းငံ့ထားပါသည် — Admin ကို ဆက်သွယ်ပါ" });
+  }
+
   try {
     const result = await pool.query(
       `INSERT INTO deposits (telegram_id, amount, currency, screenshot_url, status)
