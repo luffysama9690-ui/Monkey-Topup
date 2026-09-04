@@ -25,6 +25,7 @@ const CATEGORY_IDS = {
   ML_GLOBAL: "mobile_legends_global",
   ML_PH: "mobile_legends_philippines",
   ML_RU: "mobile_legends_ru",
+  ML_BR: "mobile_legends_brazil",
   MCGG_GLOBAL: "magic_chess_gogo_global",
   MCGG_RU: "magic_chess_gogo_ru",
   PUBG_AUTO: "pubg_mobile_auto",
@@ -48,7 +49,7 @@ const CATEGORY_IDS = {
  * only one region so it isn't prefixed.
  */
 const REGION_PREFIXES = {
-  "Mobile Legends": { Global: CATEGORY_IDS.ML_GLOBAL, PH: CATEGORY_IDS.ML_PH, RU: CATEGORY_IDS.ML_RU },
+  "Mobile Legends": { Global: CATEGORY_IDS.ML_GLOBAL, PH: CATEGORY_IDS.ML_PH, RU: CATEGORY_IDS.ML_RU, BR: CATEGORY_IDS.ML_BR },
   "Magic Chess GoGo": { Global: CATEGORY_IDS.MCGG_GLOBAL, RU: CATEGORY_IDS.MCGG_RU },
   "Racing Master": { SEA: CATEGORY_IDS.RACING_SEA, LATAM: CATEGORY_IDS.RACING_LATAM },
 };
