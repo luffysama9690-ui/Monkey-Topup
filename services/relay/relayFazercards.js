@@ -45,6 +45,12 @@ const CATEGORY_IDS = {
   GENSHIN_GLOBAL: "genshin_impact_global",
   HONKAI_STAR_RAIL_GLOBAL: "honkai_star_rail_global",
   HONKAI_IMPACT_3RD_ASIA: "honkai_impact_3rd_asia",
+  ARENA_BREAKOUT: "arena_breakout",
+  DELTA_FORCE: "delta_force",
+  EAFC_MOBILE_MY: "eafc_mobile_my",
+  IDENTITY_V: "identity_v",
+  LORDS_MOBILE: "lords_mobile",
+  STUMBLE_GUYS: "stumble_guys",
 };
 
 /**
@@ -235,6 +241,18 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     categoryId = CATEGORY_IDS.HONKAI_STAR_RAIL_GLOBAL;
   } else if (game === "Honkai Impact 3rd (Asia)") {
     categoryId = CATEGORY_IDS.HONKAI_IMPACT_3RD_ASIA;
+  } else if (game === "Arena Breakout") {
+    categoryId = CATEGORY_IDS.ARENA_BREAKOUT;
+  } else if (game === "Delta Force") {
+    categoryId = CATEGORY_IDS.DELTA_FORCE;
+  } else if (game === "EAFC Mobile (MY)") {
+    categoryId = CATEGORY_IDS.EAFC_MOBILE_MY;
+  } else if (game === "Identity V") {
+    categoryId = CATEGORY_IDS.IDENTITY_V;
+  } else if (game === "Lords Mobile") {
+    categoryId = CATEGORY_IDS.LORDS_MOBILE;
+  } else if (game === "Stumble Guys") {
+    categoryId = CATEGORY_IDS.STUMBLE_GUYS;
   } else if (game === "Free Fire") {
     // Only Thailand is on FazerCards right now -- Global has no matching
     // category, so it falls through to `undefined` and stays unchecked
@@ -418,6 +436,40 @@ const relayHonkaiImpact3rdAsiaOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.HONKAI_IMPACT_3RD_ASIA, itemName: order.item });
 };
 
+// Arena Breakout, Delta Force, EAFC Mobile (MY), Lords Mobile, Stumble
+// Guys -- all single Player/User ID, no server field. Identity V needs a
+// "server" field too (hardcoded to "Asia" -- note the capital A, matching
+// FazerCards' option value exactly, unlike Genshin/HSR's lowercase "asia").
+const relayArenaBreakoutOrderFazercards = (order) => {
+  if (order.game !== "Arena Breakout") return Promise.resolve({ ok: false, reason: "not_arena_breakout" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.ARENA_BREAKOUT, itemName: order.item });
+};
+
+const relayDeltaForceOrderFazercards = (order) => {
+  if (order.game !== "Delta Force") return Promise.resolve({ ok: false, reason: "not_delta_force" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.DELTA_FORCE, itemName: order.item });
+};
+
+const relayEafcMobileMyOrderFazercards = (order) => {
+  if (order.game !== "EAFC Mobile (MY)") return Promise.resolve({ ok: false, reason: "not_eafc_mobile_my" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.EAFC_MOBILE_MY, itemName: order.item });
+};
+
+const relayIdentityVOrderFazercards = (order) => {
+  if (order.game !== "Identity V") return Promise.resolve({ ok: false, reason: "not_identity_v" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.IDENTITY_V, itemName: order.item });
+};
+
+const relayLordsMobileOrderFazercards = (order) => {
+  if (order.game !== "Lords Mobile") return Promise.resolve({ ok: false, reason: "not_lords_mobile" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.LORDS_MOBILE, itemName: order.item });
+};
+
+const relayStumbleGuysOrderFazercards = (order) => {
+  if (order.game !== "Stumble Guys") return Promise.resolve({ ok: false, reason: "not_stumble_guys" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.STUMBLE_GUYS, itemName: order.item });
+};
+
 // Telegram Stars/Premium don't go through the /topups family at all --
 // FazerCards exposes dedicated POST /telegram/stars/buy and
 // /telegram/premium/buy endpoints instead (see reseller.fazercards.com
@@ -536,6 +588,12 @@ function isAutoFulfilled(game, item) {
     "Genshin Impact (Global)",
     "Honkai: Star Rail (Global)",
     "Honkai Impact 3rd (Asia)",
+    "Arena Breakout",
+    "Delta Force",
+    "EAFC Mobile (MY)",
+    "Identity V",
+    "Lords Mobile",
+    "Stumble Guys",
   ];
   if (autoGames.includes(game)) return true;
   if (game === "Free Fire" && /^Thailand /.test(item || "")) return true;
@@ -561,6 +619,12 @@ module.exports = {
   relayGenshinGlobalOrderFazercards,
   relayHonkaiStarRailGlobalOrderFazercards,
   relayHonkaiImpact3rdAsiaOrderFazercards,
+  relayArenaBreakoutOrderFazercards,
+  relayDeltaForceOrderFazercards,
+  relayEafcMobileMyOrderFazercards,
+  relayIdentityVOrderFazercards,
+  relayLordsMobileOrderFazercards,
+  relayStumbleGuysOrderFazercards,
   relayTelegramOrderFazercards,
   relaySteamOrderFazercards,
   relayRacingOrderFazercards,
