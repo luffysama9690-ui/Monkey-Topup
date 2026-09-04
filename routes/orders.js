@@ -17,6 +17,7 @@ const {
   relayBloodstrikeOrderFazercards,
   relayFreeFireOrderFazercards,
   relayHokOrderFazercards,
+  relaySkyCotlOrderFazercards,
   relayTelegramOrderFazercards,
   relaySteamOrderFazercards,
   validateGamePlayerId,
@@ -137,6 +138,7 @@ router.post("/", async (req, res) => {
         relayBloodstrikeOrderFazercards(order),
         relayFreeFireOrderFazercards(order),
         relayHokOrderFazercards(order),
+        relaySkyCotlOrderFazercards(order),
         relayTelegramOrderFazercards(order),
         relaySteamOrderFazercards(order),
       ]);

@@ -37,6 +37,7 @@ const CATEGORY_IDS = {
   BLOOD_STRIKE: "blood_strike",
   FREE_FIRE_TH: "free_fire_th",
   HONOR_OF_KINGS: "honor_of_kings",
+  SKY_COTL: "sky_children_of_light",
 };
 
 /**
@@ -213,6 +214,8 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     categoryId = CATEGORY_IDS.BLOOD_STRIKE;
   } else if (game === "Honor of Kings") {
     categoryId = CATEGORY_IDS.HONOR_OF_KINGS;
+  } else if (game === "Sky: Children of the Light") {
+    categoryId = CATEGORY_IDS.SKY_COTL;
   } else if (game === "Free Fire") {
     // Only Thailand is on FazerCards right now -- Global has no matching
     // category, so it falls through to `undefined` and stays unchecked
@@ -344,6 +347,17 @@ const relayHokOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.HONOR_OF_KINGS, itemName: order.item });
 };
 
+// Sky: Children of the Light item labels ("15 Regular Candles", "Season
+// Pass Pack", ...) match FazerCards' real offer names exactly -- no
+// normalization needed (confirmed via GET /topups/offers?category_id=
+// sky_children_of_light, 2569-09-04). Single "Sky ID" field (key: sky_id),
+// no server ID -- order.server_id is ignored, same as Sausage Man/WWM/
+// Blood Strike/HoK.
+const relaySkyCotlOrderFazercards = (order) => {
+  if (order.game !== "Sky: Children of the Light") return Promise.resolve({ ok: false, reason: "not_sky_cotl" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.SKY_COTL, itemName: order.item });
+};
+
 // Telegram Stars/Premium don't go through the /topups family at all --
 // FazerCards exposes dedicated POST /telegram/stars/buy and
 // /telegram/premium/buy endpoints instead (see reseller.fazercards.com
@@ -455,6 +469,7 @@ function isAutoFulfilled(game, item) {
     "Telegram",
     "Steam",
     "Honor of Kings",
+    "Sky: Children of the Light",
   ];
   if (autoGames.includes(game)) return true;
   if (game === "Free Fire" && /^Thailand /.test(item || "")) return true;
@@ -473,6 +488,7 @@ module.exports = {
   relayBloodstrikeOrderFazercards,
   relayFreeFireOrderFazercards,
   relayHokOrderFazercards,
+  relaySkyCotlOrderFazercards,
   relayTelegramOrderFazercards,
   relaySteamOrderFazercards,
   relayRacingOrderFazercards,
