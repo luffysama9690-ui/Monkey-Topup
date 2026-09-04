@@ -40,11 +40,23 @@ const CATEGORY_IDS = {
   HONOR_OF_KINGS: "honor_of_kings",
   SKY_COTL: "sky_children_of_light",
   VALORANT_TH: "valorant_th",
+  VALORANT_ID: "valorant_id",
+  VALORANT_KH: "valorant_kh",
+  VALORANT_MY: "valorant_my",
+  VALORANT_PH: "valorant_ph",
+  VALORANT_SG: "valorant_sg",
+  VALORANT_VN: "valorant_vn",
   LOL_TH: "lol_th",
   CODM_SGMY: "codm_garena_sgmy",
   GENSHIN_GLOBAL: "genshin_impact_global",
   HONKAI_STAR_RAIL_GLOBAL: "honkai_star_rail_global",
   HONKAI_IMPACT_3RD_ASIA: "honkai_impact_3rd_asia",
+  HONKAI_IMPACT_3RD_ID: "honkai_impact_3rd_id",
+  HONKAI_IMPACT_3RD_KH: "honkai_impact_3rd_kh",
+  HONKAI_IMPACT_3RD_MY: "honkai_impact_3rd_my",
+  HONKAI_IMPACT_3RD_PH: "honkai_impact_3rd_ph",
+  HONKAI_IMPACT_3RD_SG: "honkai_impact_3rd_sg",
+  HONKAI_IMPACT_3RD_TH: "honkai_impact_3rd_th",
   ARENA_BREAKOUT: "arena_breakout",
   DELTA_FORCE: "delta_force",
   EAFC_MOBILE_MY: "eafc_mobile_my",
@@ -71,6 +83,24 @@ const REGION_PREFIXES = {
   "Mobile Legends": { Global: CATEGORY_IDS.ML_GLOBAL, PH: CATEGORY_IDS.ML_PH, RU: CATEGORY_IDS.ML_RU, BR: CATEGORY_IDS.ML_BR },
   "Magic Chess GoGo": { Global: CATEGORY_IDS.MCGG_GLOBAL, RU: CATEGORY_IDS.MCGG_RU },
   "Racing Master": { SEA: CATEGORY_IDS.RACING_SEA, LATAM: CATEGORY_IDS.RACING_LATAM },
+  Valorant: {
+    ID: CATEGORY_IDS.VALORANT_ID,
+    KH: CATEGORY_IDS.VALORANT_KH,
+    MY: CATEGORY_IDS.VALORANT_MY,
+    PH: CATEGORY_IDS.VALORANT_PH,
+    SG: CATEGORY_IDS.VALORANT_SG,
+    TH: CATEGORY_IDS.VALORANT_TH,
+    VN: CATEGORY_IDS.VALORANT_VN,
+  },
+  "Honkai Impact 3rd": {
+    Asia: CATEGORY_IDS.HONKAI_IMPACT_3RD_ASIA,
+    ID: CATEGORY_IDS.HONKAI_IMPACT_3RD_ID,
+    KH: CATEGORY_IDS.HONKAI_IMPACT_3RD_KH,
+    MY: CATEGORY_IDS.HONKAI_IMPACT_3RD_MY,
+    PH: CATEGORY_IDS.HONKAI_IMPACT_3RD_PH,
+    SG: CATEGORY_IDS.HONKAI_IMPACT_3RD_SG,
+    TH: CATEGORY_IDS.HONKAI_IMPACT_3RD_TH,
+  },
 };
 
 /**
@@ -236,8 +266,6 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     categoryId = CATEGORY_IDS.HONOR_OF_KINGS;
   } else if (game === "Sky: Children of the Light") {
     categoryId = CATEGORY_IDS.SKY_COTL;
-  } else if (game === "Valorant (TH)") {
-    categoryId = CATEGORY_IDS.VALORANT_TH;
   } else if (game === "League of Legends (TH)") {
     categoryId = CATEGORY_IDS.LOL_TH;
   } else if (game === "Call of Duty Mobile (SG/MY)") {
@@ -246,8 +274,6 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     categoryId = CATEGORY_IDS.GENSHIN_GLOBAL;
   } else if (game === "Honkai: Star Rail (Global)") {
     categoryId = CATEGORY_IDS.HONKAI_STAR_RAIL_GLOBAL;
-  } else if (game === "Honkai Impact 3rd (Asia)") {
-    categoryId = CATEGORY_IDS.HONKAI_IMPACT_3RD_ASIA;
   } else if (game === "Arena Breakout") {
     categoryId = CATEGORY_IDS.ARENA_BREAKOUT;
   } else if (game === "Delta Force") {
@@ -416,15 +442,15 @@ const relaySkyCotlOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.SKY_COTL, itemName: order.item });
 };
 
-// Valorant (TH), League of Legends (TH), Call of Duty Mobile - Garena
-// (SG/MY) -- confirmed via GET /topups/offers, 2569-09-05. Riot Games
-// titles use a single "Riot ID" field; CODM Garena uses "Player ID". Offer
-// names ("475 VP", "575 RP", "114 CP") match FazerCards' real offer names
-// exactly -- no normalization needed.
-const relayValorantThOrderFazercards = (order) => {
-  if (order.game !== "Valorant (TH)") return Promise.resolve({ ok: false, reason: "not_valorant_th" });
-  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.VALORANT_TH, itemName: order.item });
-};
+// Valorant, League of Legends (TH), Call of Duty Mobile - Garena (SG/MY)
+// -- confirmed via GET /topups/offers, 2569-09-05. Riot Games titles use a
+// single "Riot ID" field; CODM Garena uses "Player ID". Offer names ("475
+// VP", "575 RP", "114 CP") match FazerCards' real offer names exactly --
+// no normalization needed. Valorant is region-split (ID/KH/MY/PH/SG/TH/VN
+// each a different FazerCards category, see REGION_PREFIXES above) --
+// same region-toggle pattern as Mobile Legends, not a separate game per
+// region.
+const relayValorantOrderFazercards = (order) => relayRegionSplitGame(order, "Valorant");
 
 const relayLolThOrderFazercards = (order) => {
   if (order.game !== "League of Legends (TH)") return Promise.resolve({ ok: false, reason: "not_lol_th" });
@@ -441,7 +467,6 @@ const relayCodmSgmyOrderFazercards = (order) => {
 // (no server picker shown to the customer), and buildFields() already maps
 // any field whose label contains "server" to order.server_id generically,
 // so no special-casing is needed here beyond the category id itself.
-// Honkai Impact 3rd (Asia) only needs a Player ID, same as Sky/HoK.
 const relayGenshinGlobalOrderFazercards = (order) => {
   if (order.game !== "Genshin Impact (Global)") return Promise.resolve({ ok: false, reason: "not_genshin_global" });
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.GENSHIN_GLOBAL, itemName: order.item });
@@ -452,10 +477,9 @@ const relayHonkaiStarRailGlobalOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.HONKAI_STAR_RAIL_GLOBAL, itemName: order.item });
 };
 
-const relayHonkaiImpact3rdAsiaOrderFazercards = (order) => {
-  if (order.game !== "Honkai Impact 3rd (Asia)") return Promise.resolve({ ok: false, reason: "not_honkai_impact_3rd_asia" });
-  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.HONKAI_IMPACT_3RD_ASIA, itemName: order.item });
-};
+// Honkai Impact 3rd is region-split too (Asia/ID/KH/MY/PH/SG/TH) -- same
+// pattern as Valorant above.
+const relayHonkaiImpact3rdOrderFazercards = (order) => relayRegionSplitGame(order, "Honkai Impact 3rd");
 
 // Arena Breakout, Delta Force, EAFC Mobile (MY), Lords Mobile, Stumble
 // Guys -- all single Player/User ID, no server field. Identity V needs a
@@ -643,12 +667,12 @@ function isAutoFulfilled(game, item) {
     "Steam",
     "Honor of Kings",
     "Sky: Children of the Light",
-    "Valorant (TH)",
+    "Valorant",
     "League of Legends (TH)",
     "Call of Duty Mobile (SG/MY)",
     "Genshin Impact (Global)",
     "Honkai: Star Rail (Global)",
-    "Honkai Impact 3rd (Asia)",
+    "Honkai Impact 3rd",
     "Arena Breakout",
     "Delta Force",
     "EAFC Mobile (MY)",
@@ -681,12 +705,12 @@ module.exports = {
   relayFreeFireOrderFazercards,
   relayHokOrderFazercards,
   relaySkyCotlOrderFazercards,
-  relayValorantThOrderFazercards,
+  relayValorantOrderFazercards,
   relayLolThOrderFazercards,
   relayCodmSgmyOrderFazercards,
   relayGenshinGlobalOrderFazercards,
   relayHonkaiStarRailGlobalOrderFazercards,
-  relayHonkaiImpact3rdAsiaOrderFazercards,
+  relayHonkaiImpact3rdOrderFazercards,
   relayArenaBreakoutOrderFazercards,
   relayDeltaForceOrderFazercards,
   relayEafcMobileMyOrderFazercards,
