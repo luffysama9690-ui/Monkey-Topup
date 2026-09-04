@@ -230,9 +230,25 @@ function openSpinButton(label = "🎡 Spin ကစားရန်") {
   const separator = url.includes("?") ? "&" : "?";
   const isTmeLink = /^https:\/\/t\.me\//i.test(url);
   const spinUrl = isTmeLink ? `${url}${separator}startapp=spin` : `${url}${separator}view=spin`;
-  const useWebApp = process.env.MINI_APP_BUTTON_TYPE === "web_app" && !isTmeLink;
+  // Unlike openAppButton(), this always uses "web_app" for non-t.me URLs --
+  // never a plain "url" button -- regardless of MINI_APP_BUTTON_TYPE.
+  // A plain "url" button opens the link in an external/in-app browser tab,
+  // which is a brand new page with no access to Telegram's WebApp SDK, so
+  // window.Telegram.WebApp.initDataUnsafe.user is empty there and the app
+  // shows the login screen as if it's a stranger, even on the customer's
+  // own phone -- which is exactly the "opens a new window, looks like a
+  // new account" bug this fixes. t.me Mini App links are the one exception:
+  // Telegram recognizes and relaunches those as the Mini App itself even
+  // through a plain "url" button, so they're left as-is.
+  //
+  // Note: web_app buttons only work if MINI_APP_URL's domain has been
+  // registered as this bot's Mini App domain via BotFather (/setdomain) --
+  // see the setup steps given earlier. Until that's done, Telegram will
+  // reject sending this message entirely (sendTelegramMessage below just
+  // logs the failure and returns false, so it fails loudly in the Render
+  // logs rather than silently breaking sessions again).
   return {
-    inline_keyboard: [[useWebApp ? { text: label, web_app: { url: spinUrl } } : { text: label, url: spinUrl }]],
+    inline_keyboard: [[isTmeLink ? { text: label, url: spinUrl } : { text: label, web_app: { url: spinUrl } }]],
   };
 }
 
