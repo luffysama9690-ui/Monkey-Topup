@@ -59,6 +59,14 @@ async function getOffers(categoryId, { forceRefresh = false } = {}) {
   return data;
 }
 
+// Full topup category list -- category_id + display name + note, no offers
+// (see getOffers for that, per category). limit=500 covers the whole
+// catalog in one call as of 2569-09-05 (316 categories).
+async function listCategories() {
+  const data = await fazerFetch(`/topups?limit=500`);
+  return data.items;
+}
+
 async function validatePlayerId(categoryId, fields) {
   return fazerFetch("/topups/validate-id", {
     method: "POST",
@@ -120,6 +128,7 @@ async function buySteamTopup(steamLogin, currency, amount, idempotencyKey) {
 
 module.exports = {
   getOffers,
+  listCategories,
   validatePlayerId,
   createTopupOrder,
   getOrderStatus,

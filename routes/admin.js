@@ -2,6 +2,7 @@ const express = require("express");
 const pool = require("../db");
 const { updateDepositStatus, updateOrderStatus } = require("./sheets");
 const { sendTelegramMessage, sendTelegramPhoto } = require("./telegram");
+const fazercards = require("../services/relay/fazercards");
 
 const router = express.Router();
 
@@ -297,6 +298,54 @@ router.post("/set-banned", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to update banned status" });
+  }
+});
+
+// GET /api/admin/fazercards-catalog?telegramId=...
+// One-off bulk export: fetches FazerCards' full topup category list (all
+// ~316 as of 2569-09-05) plus every category's offers (name, price_usd,
+// required fields), in one request. Meant for figuring out which games are
+// worth adding to the app next -- NOT called by the frontend during normal
+// use. Concurrency-limited (10 at a time) so 316 categories finish in
+// roughly 15-30s instead of timing out doing them one at a time. Admin-only,
+// same as every other /admin route.
+router.get("/fazercards-catalog", async (req, res) => {
+  const { telegramId } = req.query;
+  if (!isAdmin(telegramId)) {
+    return res.status(403).json({ error: "Not authorized" });
+  }
+
+  try {
+    const categories = await fazercards.listCategories();
+    const results = new Array(categories.length);
+    const CONCURRENCY = 10;
+    let nextIndex = 0;
+
+    async function worker() {
+      while (nextIndex < categories.length) {
+        const i = nextIndex++;
+        const cat = categories[i];
+        try {
+          const offerData = await fazercards.getOffers(cat.category_id);
+          results[i] = {
+            category_id: cat.category_id,
+            name: cat.name,
+            offers: offerData.offers,
+            fields: offerData.fields,
+          };
+        } catch (err) {
+          results[i] = { category_id: cat.category_id, name: cat.name, error: err.message };
+        }
+      }
+    }
+
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+
+    res.setHeader("Content-Disposition", 'attachment; filename="fazercards-catalog.json"');
+    res.json({ ok: true, count: results.length, categories: results });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch FazerCards catalog", detail: err.message });
   }
 });
 
