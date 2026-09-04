@@ -18,6 +18,7 @@ const {
   answerCallbackQuery,
   editMessageReplyMarkup,
   mainMenuKeyboard,
+  openSpinButton,
   MENU_BUTTONS,
 } = require("./telegram");
 const { sendOrderReceipt } = require("../services/orderReceipt");
@@ -122,6 +123,17 @@ router.post("/webhook", async (req, res) => {
       }
       if (text === MENU_BUTTONS.SUPPORT) {
         await sendTelegramMessage(chatId, formatSupportMessage(), { replyMarkup: mainMenuKeyboard() });
+        return;
+      }
+      if (text === MENU_BUTTONS.SPIN) {
+        const spinButton = openSpinButton();
+        const spinText = spinButton
+          ? "🎡 <b>Lucky Spin</b>\n\nအောက်က ခလုတ်ကို နှိပ်ပြီး App ထဲက ကံစမ်းမဲကို ကစားပါ။"
+          : "🎡 <b>Lucky Spin</b>\n\nApp link ကို admin ဆီက setup လုပ်ရန် လိုအပ်နေပါသေးတယ် (<code>MINI_APP_URL</code> env variable)။";
+        // Send the spin OPEN button on its own (no reply keyboard attached),
+        // so the inline button stays clean; the persistent keyboard is
+        // already showing underneath from before.
+        await sendTelegramMessage(chatId, spinText, { replyMarkup: spinButton });
         return;
       }
 
