@@ -39,6 +39,9 @@ const CATEGORY_IDS = {
   FREE_FIRE_TH: "free_fire_th",
   HONOR_OF_KINGS: "honor_of_kings",
   SKY_COTL: "sky_children_of_light",
+  VALORANT_TH: "valorant_th",
+  LOL_TH: "lol_th",
+  CODM_SGMY: "codm_garena_sgmy",
 };
 
 /**
@@ -359,6 +362,26 @@ const relaySkyCotlOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.SKY_COTL, itemName: order.item });
 };
 
+// Valorant (TH), League of Legends (TH), Call of Duty Mobile - Garena
+// (SG/MY) -- confirmed via GET /topups/offers, 2569-09-05. Riot Games
+// titles use a single "Riot ID" field; CODM Garena uses "Player ID". Offer
+// names ("475 VP", "575 RP", "114 CP") match FazerCards' real offer names
+// exactly -- no normalization needed.
+const relayValorantThOrderFazercards = (order) => {
+  if (order.game !== "Valorant (TH)") return Promise.resolve({ ok: false, reason: "not_valorant_th" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.VALORANT_TH, itemName: order.item });
+};
+
+const relayLolThOrderFazercards = (order) => {
+  if (order.game !== "League of Legends (TH)") return Promise.resolve({ ok: false, reason: "not_lol_th" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.LOL_TH, itemName: order.item });
+};
+
+const relayCodmSgmyOrderFazercards = (order) => {
+  if (order.game !== "Call of Duty Mobile (SG/MY)") return Promise.resolve({ ok: false, reason: "not_codm_sgmy" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.CODM_SGMY, itemName: order.item });
+};
+
 // Telegram Stars/Premium don't go through the /topups family at all --
 // FazerCards exposes dedicated POST /telegram/stars/buy and
 // /telegram/premium/buy endpoints instead (see reseller.fazercards.com
@@ -471,6 +494,9 @@ function isAutoFulfilled(game, item) {
     "Steam",
     "Honor of Kings",
     "Sky: Children of the Light",
+    "Valorant (TH)",
+    "League of Legends (TH)",
+    "Call of Duty Mobile (SG/MY)",
   ];
   if (autoGames.includes(game)) return true;
   if (game === "Free Fire" && /^Thailand /.test(item || "")) return true;
@@ -490,6 +516,9 @@ module.exports = {
   relayFreeFireOrderFazercards,
   relayHokOrderFazercards,
   relaySkyCotlOrderFazercards,
+  relayValorantThOrderFazercards,
+  relayLolThOrderFazercards,
+  relayCodmSgmyOrderFazercards,
   relayTelegramOrderFazercards,
   relaySteamOrderFazercards,
   relayRacingOrderFazercards,
