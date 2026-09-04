@@ -1,7 +1,8 @@
 const express = require("express");
 const pool = require("../db");
 const { notifyAdmin, orderDoneButton } = require("./telegram");
-const { logOrder } = require("./sheets");
+const { logOrder, updateOrderProfitAndBalance } = require("./sheets");
+const { getBalance } = require("../services/relay/fazercards");
 const { scheduleOrderStatusCheck } = require("../services/orderStatusChecker");
 const { sendOrderReceipt } = require("../services/orderReceipt");
 const {
@@ -166,6 +167,28 @@ router.post("/", async (req, res) => {
           scheduleOrderStatusCheck(order.id);
         } catch (err) {
           console.error(`[relay] Order #${order.id}: failed to save fazercards_order_id: ${err.message}`);
+        }
+
+        // Bookkeeping: log this order's profit (customer price minus
+        // FazerCards' own cost, in the order's currency) and the FazerCards
+        // account balance right after this purchase, into the "Orders"
+        // sheet (columns M/N). Uses the live /balance endpoint rather than
+        // computing a running total locally, so it can't drift out of sync
+        // with FazerCards' side (e.g. from the monthly subscription charge).
+        // Best-effort — never blocks the receipt or throws into the outer flow.
+        try {
+          const usdToCurrency = order.currency === "mmk" ? 4193 : 33.03; // same rate used across the pricing sheets
+          const costInOrderCurrency = parseFloat(succeeded.offer.price_usd) * usdToCurrency;
+          const profit = Math.round(order.price - costInOrderCurrency);
+          const balanceResult = await getBalance();
+          // ⚠️ Field name unconfirmed — never tested this endpoint's actual
+          // response shape. Check Render logs after the first live order;
+          // if fundBalanceUsd logs as null, inspect balanceResult here and
+          // fix the field name.
+          const fundBalanceUsd = balanceResult?.balance ?? balanceResult?.balance_usd ?? null;
+          await updateOrderProfitAndBalance(order.id, profit, fundBalanceUsd);
+        } catch (err) {
+          console.error(`[relay] Order #${order.id}: failed to log profit/balance: ${err.message}`);
         }
 
         // The relay went through -- send the fulfillment receipt right

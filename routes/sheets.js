@@ -144,9 +144,48 @@ function updateDepositStatus(id, status) {
 }
 
 // Orders layout: A=timestamp, B=id, C=telegramId, D=game, E=item, F=gameId,
-// G=serverId, H=qty, I=price, J=currency, K=payMethod, L=status
+// G=serverId, H=qty, I=price, J=currency, K=payMethod, L=status, M=profit
+// (in the order's own currency), N=FazerCards balance (USD) right after
+// this order relayed successfully.
 function updateOrderStatus(id, status) {
   return updateStatus("Orders", "L", id, status);
 }
 
-module.exports = { logOrder, logDeposit, updateDepositStatus, updateOrderStatus };
+// Called once an auto-fulfilled order's FazerCards relay succeeds. Finds
+// the order's row (same lookup-by-id-column approach as updateStatus) and
+// fills in M (profit) and N (FazerCards balance) in one write. Silently
+// no-ops if Sheets isn't configured or the row can't be found — this is
+// bookkeeping, never something that should throw and break order flow.
+async function updateOrderProfitAndBalance(id, profit, fundBalanceUsd) {
+  const sheetId = process.env.GOOGLE_SHEET_ID;
+  const sheets = getSheetsClient();
+  if (!sheets || !sheetId) {
+    console.warn("updateOrderProfitAndBalance skipped — Google Sheets env vars are not set.");
+    return;
+  }
+
+  try {
+    const idColumn = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: "Orders!B:B",
+    });
+    const rows = idColumn.data.values || [];
+    const rowIndex = rows.findIndex((r) => String(r[0]) === String(id));
+    if (rowIndex === -1) {
+      console.warn(`updateOrderProfitAndBalance — no row found for id ${id}`);
+      return;
+    }
+
+    const rowNumber = rowIndex + 1;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `Orders!M${rowNumber}:N${rowNumber}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values: [[profit, fundBalanceUsd]] },
+    });
+  } catch (err) {
+    console.error("updateOrderProfitAndBalance failed:", err.message);
+  }
+}
+
+module.exports = { logOrder, logDeposit, updateDepositStatus, updateOrderStatus, updateOrderProfitAndBalance };
