@@ -241,19 +241,41 @@ router.post("/", async (req, res) => {
         // computing a running total locally, so it can't drift out of sync
         // with FazerCards' side (e.g. from the monthly subscription charge).
         // Best-effort — never blocks the receipt or throws into the outer flow.
+        //
+        // Bug fixed 2569-09-06: profit and the balance lookup used to share
+        // one try block, so if the separate GET /balance call failed or
+        // timed out, the already-computed profit was thrown away along
+        // with it -- even though the order itself had gone through fine on
+        // FazerCards' side. They're independent now: profit always gets
+        // written (with fundBalanceUsd left null) even if the balance
+        // lookup fails.
+        let profit = null;
         try {
           const usdToCurrency = order.currency === "mmk" ? 4193 : 33.03; // same rate used across the pricing sheets
           const costInOrderCurrency = parseFloat(succeeded.offer.price_usd) * usdToCurrency;
-          const profit = Math.round(order.price - costInOrderCurrency);
+          profit = Math.round(order.price - costInOrderCurrency);
+        } catch (err) {
+          console.error(`[relay] Order #${order.id}: failed to compute profit: ${err.message}`);
+        }
+
+        let fundBalanceUsd = null;
+        try {
           const balanceResult = await getBalance();
           // ⚠️ Field name unconfirmed — never tested this endpoint's actual
           // response shape. Check Render logs after the first live order;
           // if fundBalanceUsd logs as null, inspect balanceResult here and
           // fix the field name.
-          const fundBalanceUsd = balanceResult?.balance ?? balanceResult?.balance_usd ?? null;
-          await updateOrderProfitAndBalance(order.id, profit, fundBalanceUsd);
+          fundBalanceUsd = balanceResult?.balance ?? balanceResult?.balance_usd ?? null;
         } catch (err) {
-          console.error(`[relay] Order #${order.id}: failed to log profit/balance: ${err.message}`);
+          console.error(`[relay] Order #${order.id}: failed to fetch FazerCards balance: ${err.message}`);
+        }
+
+        if (profit != null) {
+          try {
+            await updateOrderProfitAndBalance(order.id, profit, fundBalanceUsd);
+          } catch (err) {
+            console.error(`[relay] Order #${order.id}: failed to write profit/balance to sheet: ${err.message}`);
+          }
         }
 
         // The relay went through -- send the fulfillment receipt right

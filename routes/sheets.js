@@ -224,7 +224,10 @@ async function updateOrderProfitAndBalance(id, profit, fundBalanceUsd) {
       spreadsheetId: sheetId,
       range: `Orders!M${rowNumber}:N${rowNumber}`,
       valueInputOption: "USER_ENTERED",
-      requestBody: { values: [[profit, fundBalanceUsd]] },
+      // fundBalanceUsd can be null (balance lookup failed/wasn't reached) --
+      // send an empty string rather than JS null, which some Sheets API
+      // client versions reject outright for a values[][] cell.
+      requestBody: { values: [[profit, fundBalanceUsd ?? ""]] },
     });
   } catch (err) {
     console.error("updateOrderProfitAndBalance failed:", err.message);
