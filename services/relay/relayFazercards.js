@@ -93,6 +93,7 @@ const CATEGORY_IDS = {
   TFT_MOBILE_MY: "tft_mobile_my",
   TFT_MOBILE_PH: "tft_mobile_ph",
   TFT_MOBILE_SG: "tft_mobile_sg",
+  EIGHT_BALL_POOL: "8_ball_pool",
 };
 
 /**
@@ -343,6 +344,8 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     categoryId = CATEGORY_IDS.GROWTOPIA;
   } else if (game === "Eggy Party") {
     categoryId = CATEGORY_IDS.EGGY_PARTY;
+  } else if (game === "8 Ball Pool") {
+    categoryId = CATEGORY_IDS.EIGHT_BALL_POOL;
   } else if (game === "Free Fire") {
     // Only Thailand is on FazerCards right now -- Global has no matching
     // category, so it falls through to `undefined` and stays unchecked
@@ -577,6 +580,11 @@ const relayEggyPartyOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.EGGY_PARTY, itemName: order.item });
 };
 
+const relayEightBallPoolOrderFazercards = (order) => {
+  if (order.game !== "8 Ball Pool") return Promise.resolve({ ok: false, reason: "not_8_ball_pool" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.EIGHT_BALL_POOL, itemName: order.item });
+};
+
 const relayR6MobileOrderFazercards = (order) => relayRegionSplitGame(order, "Rainbow Six Mobile");
 
 const relayTftMobileOrderFazercards = (order) => relayRegionSplitGame(order, "TFT Mobile");
@@ -716,6 +724,7 @@ function isAutoFulfilled(game, item) {
     "Blockman Go",
     "Growtopia",
     "Eggy Party",
+    "8 Ball Pool",
     "Rainbow Six Mobile",
     "TFT Mobile",
   ];
@@ -754,6 +763,7 @@ module.exports = {
   relayBlockmanGoOrderFazercards,
   relayGrowtopiaOrderFazercards,
   relayEggyPartyOrderFazercards,
+  relayEightBallPoolOrderFazercards,
   relayR6MobileOrderFazercards,
   relayTftMobileOrderFazercards,
   relayTelegramOrderFazercards,
