@@ -94,6 +94,17 @@ const CATEGORY_IDS = {
   TFT_MOBILE_PH: "tft_mobile_ph",
   TFT_MOBILE_SG: "tft_mobile_sg",
   EIGHT_BALL_POOL: "8_ball_pool",
+  ACECRAFT: "acecraft",
+  ACE_RACER: "ace_racer",
+  AFK_JOURNEY: "afk_journey",
+  AGE_OF_EMPIRE_MOBILE: "age_of_empire_mobile",
+  BALLISTIC_HERO_VNG: "ballistic_hero_vng",
+  AZUR_LANE: "azur_lane",
+  BADLANDERS: "badlanders",
+  ARENA_OF_VALOR_EU: "arena_of_valor_eu",
+  ARENA_OF_VALOR_ID: "arena_of_valor_id",
+  ARENA_OF_VALOR_TH: "arena_of_valor_th",
+  ASPHALT_9_LEGENDS: "asphalt_9_legends",
 };
 
 /**
@@ -159,6 +170,7 @@ const REGION_PREFIXES = {
     TH: CATEGORY_IDS.TFT_MOBILE_TH,
   },
   "Call of Duty Mobile (Garena)": { SGMY: CATEGORY_IDS.CODM_SGMY, Indonesia: CATEGORY_IDS.CODM_INDONESIA },
+  "Arena of Valor": { EU: CATEGORY_IDS.ARENA_OF_VALOR_EU, ID: CATEGORY_IDS.ARENA_OF_VALOR_ID, TH: CATEGORY_IDS.ARENA_OF_VALOR_TH },
 };
 
 /**
@@ -269,7 +281,11 @@ function buildFields(fieldsSchema, order) {
   const fields = {};
   for (const f of fieldsSchema) {
     const label = (f.label || "").toLowerCase();
-    if (label.includes("server") || label.includes("zone")) {
+    // "server_id" is used as the generic slot for whatever a game's *second*
+    // field is (Server, Zone, or -- as with Asphalt 9 -- Platform), whether
+    // it's a real value the customer picked or one hardcoded by the
+    // frontend (e.g. Genshin/Identity V's fixed "asia"/"Asia").
+    if (label.includes("server") || label.includes("zone") || label.includes("platform")) {
       fields[f.key] = String(order.server_id != null ? order.server_id : "");
     } else {
       fields[f.key] = String(order.game_id != null ? order.game_id : "");
@@ -346,6 +362,22 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     categoryId = CATEGORY_IDS.EGGY_PARTY;
   } else if (game === "8 Ball Pool") {
     categoryId = CATEGORY_IDS.EIGHT_BALL_POOL;
+  } else if (game === "Acecraft") {
+    categoryId = CATEGORY_IDS.ACECRAFT;
+  } else if (game === "Ace Racer") {
+    categoryId = CATEGORY_IDS.ACE_RACER;
+  } else if (game === "AFK Journey") {
+    categoryId = CATEGORY_IDS.AFK_JOURNEY;
+  } else if (game === "Age of Empire Mobile") {
+    categoryId = CATEGORY_IDS.AGE_OF_EMPIRE_MOBILE;
+  } else if (game === "Ballistic Hero VNG") {
+    categoryId = CATEGORY_IDS.BALLISTIC_HERO_VNG;
+  } else if (game === "Azur Lane") {
+    categoryId = CATEGORY_IDS.AZUR_LANE;
+  } else if (game === "Badlanders") {
+    categoryId = CATEGORY_IDS.BADLANDERS;
+  } else if (game === "Asphalt 9: Legends") {
+    categoryId = CATEGORY_IDS.ASPHALT_9_LEGENDS;
   } else if (game === "Free Fire") {
     // Only Thailand is on FazerCards right now -- Global has no matching
     // category, so it falls through to `undefined` and stays unchecked
@@ -585,6 +617,61 @@ const relayEightBallPoolOrderFazercards = (order) => {
   return relayViaFazercards(order, { categoryId: CATEGORY_IDS.EIGHT_BALL_POOL, itemName: order.item });
 };
 
+// Acecraft, AFK Journey, Ballistic Hero VNG -- single ID field, no server.
+const relayAcecraftOrderFazercards = (order) => {
+  if (order.game !== "Acecraft") return Promise.resolve({ ok: false, reason: "not_acecraft" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.ACECRAFT, itemName: order.item });
+};
+
+const relayAfkJourneyOrderFazercards = (order) => {
+  if (order.game !== "AFK Journey") return Promise.resolve({ ok: false, reason: "not_afk_journey" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.AFK_JOURNEY, itemName: order.item });
+};
+
+const relayBallisticHeroVngOrderFazercards = (order) => {
+  if (order.game !== "Ballistic Hero VNG") return Promise.resolve({ ok: false, reason: "not_ballistic_hero_vng" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.BALLISTIC_HERO_VNG, itemName: order.item });
+};
+
+// Ace Racer, Age of Empire Mobile -- Player ID + visible Server ID, same
+// two-field shape as Mobile Legends.
+const relayAceRacerOrderFazercards = (order) => {
+  if (order.game !== "Ace Racer") return Promise.resolve({ ok: false, reason: "not_ace_racer" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.ACE_RACER, itemName: order.item });
+};
+
+const relayAgeOfEmpireMobileOrderFazercards = (order) => {
+  if (order.game !== "Age of Empire Mobile") return Promise.resolve({ ok: false, reason: "not_age_of_empire_mobile" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.AGE_OF_EMPIRE_MOBILE, itemName: order.item });
+};
+
+// Azur Lane's "Server" is a fixed dropdown (Amagi/Avrora/Lexington/Little
+// Enterprise/Sandy/Washington) shown to the customer and sent as
+// order.server_id exactly as FazerCards spells it. Badlanders' "Server"
+// has only one real option ("global"), so the frontend hardcodes that
+// value instead of showing a picker with nothing to choose.
+const relayAzurLaneOrderFazercards = (order) => {
+  if (order.game !== "Azur Lane") return Promise.resolve({ ok: false, reason: "not_azur_lane" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.AZUR_LANE, itemName: order.item });
+};
+
+const relayBadlandersOrderFazercards = (order) => {
+  if (order.game !== "Badlanders") return Promise.resolve({ ok: false, reason: "not_badlanders" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.BADLANDERS, itemName: order.item });
+};
+
+// Asphalt 9: Legends' second field is "Platform" (Android/Windows/iOS),
+// not a server -- buildFields() maps it via order.server_id same as any
+// other "second slot" field (see the "platform" check added there).
+const relayAsphalt9LegendsOrderFazercards = (order) => {
+  if (order.game !== "Asphalt 9: Legends") return Promise.resolve({ ok: false, reason: "not_asphalt_9_legends" });
+  return relayViaFazercards(order, { categoryId: CATEGORY_IDS.ASPHALT_9_LEGENDS, itemName: order.item });
+};
+
+// Arena of Valor is region-split (EU/ID/TH) -- same region-toggle pattern
+// as Valorant/Honkai Impact 3rd, not a separate game card per region.
+const relayArenaOfValorOrderFazercards = (order) => relayRegionSplitGame(order, "Arena of Valor");
+
 const relayR6MobileOrderFazercards = (order) => relayRegionSplitGame(order, "Rainbow Six Mobile");
 
 const relayTftMobileOrderFazercards = (order) => relayRegionSplitGame(order, "TFT Mobile");
@@ -727,6 +814,15 @@ function isAutoFulfilled(game, item) {
     "8 Ball Pool",
     "Rainbow Six Mobile",
     "TFT Mobile",
+    "Acecraft",
+    "Ace Racer",
+    "AFK Journey",
+    "Age of Empire Mobile",
+    "Ballistic Hero VNG",
+    "Azur Lane",
+    "Badlanders",
+    "Asphalt 9: Legends",
+    "Arena of Valor",
   ];
   if (autoGames.includes(game)) return true;
   if (game === "Free Fire" && /^Thailand /.test(item || "")) return true;
@@ -764,6 +860,15 @@ module.exports = {
   relayGrowtopiaOrderFazercards,
   relayEggyPartyOrderFazercards,
   relayEightBallPoolOrderFazercards,
+  relayAcecraftOrderFazercards,
+  relayAfkJourneyOrderFazercards,
+  relayBallisticHeroVngOrderFazercards,
+  relayAceRacerOrderFazercards,
+  relayAgeOfEmpireMobileOrderFazercards,
+  relayAzurLaneOrderFazercards,
+  relayBadlandersOrderFazercards,
+  relayAsphalt9LegendsOrderFazercards,
+  relayArenaOfValorOrderFazercards,
   relayR6MobileOrderFazercards,
   relayTftMobileOrderFazercards,
   relayTelegramOrderFazercards,
