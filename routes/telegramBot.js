@@ -24,12 +24,16 @@ const { sendOrderReceipt } = require("../services/orderReceipt");
 
 const router = express.Router();
 
+// Same multi-admin list as routes/admin.js (ADMIN_TELEGRAM_IDS, comma-
+// separated, plus legacy singular ADMIN_TELEGRAM_ID) -- kept as a local
+// copy since this module doesn't otherwise depend on admin.js.
 function isAdmin(telegramId) {
-  return (
-    !!process.env.ADMIN_TELEGRAM_ID &&
-    !!telegramId &&
-    String(telegramId) === String(process.env.ADMIN_TELEGRAM_ID)
-  );
+  if (!telegramId) return false;
+  const raw = [process.env.ADMIN_TELEGRAM_IDS, process.env.ADMIN_TELEGRAM_ID]
+    .filter(Boolean)
+    .join(",");
+  const ids = new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
+  return ids.has(String(telegramId));
 }
 
 const WELCOME_TEXT = "🐒 <b>Monkey Topup</b>\n\nအောက်က menu ထဲက တစ်ခုခုကို ရွေးပါ 👇";

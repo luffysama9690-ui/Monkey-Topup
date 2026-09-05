@@ -6,16 +6,28 @@ const fazercards = require("../services/relay/fazercards");
 
 const router = express.Router();
 
-// Simple authorization check: only the Telegram ID configured in
-// ADMIN_TELEGRAM_ID (Render env var) may use these endpoints. The real check
-// always happens here on the server — the frontend only decides whether to
-// *show* the Admin tab, it never grants access on its own.
-function isAdmin(telegramId) {
-  return (
-    !!process.env.ADMIN_TELEGRAM_ID &&
-    !!telegramId &&
-    String(telegramId) === String(process.env.ADMIN_TELEGRAM_ID)
+// Simple authorization check: any Telegram ID listed in ADMIN_TELEGRAM_IDS
+// (Render env var, comma-separated -- supports negative IDs too, for
+// website accounts) may use these endpoints. ADMIN_TELEGRAM_ID (singular)
+// still works on its own for backward compatibility; both can be set
+// together. The real check always happens here on the server — the
+// frontend only decides whether to *show* the Admin tab, it never grants
+// access on its own.
+function adminIdSet() {
+  const raw = [process.env.ADMIN_TELEGRAM_IDS, process.env.ADMIN_TELEGRAM_ID]
+    .filter(Boolean)
+    .join(",");
+  return new Set(
+    raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
   );
+}
+
+function isAdmin(telegramId) {
+  if (!telegramId) return false;
+  return adminIdSet().has(String(telegramId));
 }
 
 // GET /api/admin/check?telegramId=...

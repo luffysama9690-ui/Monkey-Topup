@@ -4,6 +4,11 @@
 // Needs these environment variables on Render:
 //   TELEGRAM_BOT_TOKEN   — from @BotFather
 //   ADMIN_TELEGRAM_ID    — your personal numeric Telegram ID (from @userinfobot)
+//   ADMIN_TELEGRAM_IDS   — comma-separated list, for multiple admins (e.g. you
+//                          and friends who help manage the shop). Can include
+//                          negative IDs for website-only admin accounts (those
+//                          just won't receive Telegram notifications). Either
+//                          this or ADMIN_TELEGRAM_ID (or both) works.
 //   MINI_APP_URL         — the link that the "OPEN" button should open.
 //                          Best value: https://t.me/<your_bot_username>/<your_app_short_name>
 //                          (this opens the Mini App itself, inside Telegram).
@@ -168,20 +173,28 @@ function orderDoneButton(orderId, label = "✅ Done ပို့ရန်") {
   };
 }
 
-// Sends a plain text message to the admin's Telegram chat, with an OPEN
-// button attached (if MINI_APP_URL is configured) so tapping it jumps
-// straight into the Mini App to review the new order/deposit.
+// Sends a plain text message to every admin's Telegram chat (see
+// ADMIN_TELEGRAM_IDS below), each with an OPEN button attached (if
+// MINI_APP_URL is configured) so tapping it jumps straight into the Mini
+// App to review the new order/deposit. Website-only admins (negative
+// synthetic telegram_id, see schema.sql) have no Telegram chat to message
+// and are skipped here -- they see the same order/deposit in the Admin
+// Panel itself instead.
 async function notifyAdmin(text, options = {}) {
-  const chatId = process.env.ADMIN_TELEGRAM_ID;
+  const raw = [process.env.ADMIN_TELEGRAM_IDS, process.env.ADMIN_TELEGRAM_ID]
+    .filter(Boolean)
+    .join(",");
+  const chatIds = [...new Set(raw.split(",").map((s) => s.trim()).filter(Boolean))].filter(
+    (id) => /^\d+$/.test(id)
+  );
 
-  if (!chatId) {
-    console.warn("notifyAdmin skipped — ADMIN_TELEGRAM_ID is not set.");
+  if (chatIds.length === 0) {
+    console.warn("notifyAdmin skipped — no ADMIN_TELEGRAM_IDS/ADMIN_TELEGRAM_ID configured.");
     return;
   }
 
-  await sendTelegramMessage(chatId, text, {
-    replyMarkup: options.replyMarkup !== undefined ? options.replyMarkup : openAppButton(),
-  });
+  const replyMarkup = options.replyMarkup !== undefined ? options.replyMarkup : openAppButton();
+  await Promise.all(chatIds.map((chatId) => sendTelegramMessage(chatId, text, { replyMarkup })));
 }
 
 // Persistent reply keyboard shown at the bottom of the chat, next to the
