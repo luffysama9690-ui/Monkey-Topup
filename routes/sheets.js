@@ -65,6 +65,7 @@ async function appendRow(sheetName, row) {
   }
 
   try {
+    await ensureHeaderRow(sheets, sheetId, sheetName);
     await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
       range: `${sheetName}!A1`,
@@ -75,6 +76,48 @@ async function appendRow(sheetName, row) {
   } catch (err) {
     console.error(`appendRow(${sheetName}) failed:`, err.message);
   }
+}
+
+// Column labels for each tab, matching the layout comments throughout this
+// file exactly. Written into row 1 automatically the first time a row is
+// ever appended to that tab (only when A1 is currently empty, so this never
+// overwrites labels someone typed in by hand).
+const SHEET_HEADERS = {
+  Orders: [
+    "Time",
+    "Order ID",
+    "Telegram ID",
+    "Game",
+    "Item",
+    "Game ID",
+    "Server ID",
+    "Qty",
+    "Price",
+    "Currency",
+    "Pay Method",
+    "Status",
+    "Profit",
+    "FazerCards Balance (USD)",
+  ],
+  Deposits: ["Time", "Deposit ID", "Telegram ID", "Amount", "Currency", "Status"],
+};
+
+async function ensureHeaderRow(sheets, sheetId, sheetName) {
+  const headers = SHEET_HEADERS[sheetName];
+  if (!headers) return; // unknown tab -- nothing to label
+
+  const existing = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${sheetName}!A1`,
+  });
+  if (existing.data.values && existing.data.values.length > 0) return; // already has something in A1
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId,
+    range: `${sheetName}!A1`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [headers] },
+  });
 }
 
 // One row per package purchase, into the "Orders" tab.
