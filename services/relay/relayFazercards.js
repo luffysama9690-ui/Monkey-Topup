@@ -625,9 +625,14 @@ const relayTelegramOrderFazercards = async (order) => {
 // purchase modal's Steam-specific field in App.jsx). Item labels are
 // "Steam Global {usd} USD" (see STEAM_PACKAGES in App.jsx); FazerCards is
 // always paid in USD regardless of which currency the customer paid us in.
-function parseSteamUsdAmount(item) {
-  const m = /(\d+(?:\.\d+)?)\s*USD/i.exec(item || "");
-  return m ? Number(m[1]) : null;
+// Parses "Steam Global 5 USD" -> {currency:"USD", amount:5}, or
+// "Steam RUB 430 RUB" -> {currency:"RUB", amount:430}, etc. Supports all 4
+// currencies FazerCards' Steam wallet top-up-by-login actually accepts
+// (confirmed via GET /steam-topup/rates, 2569-09-05) -- USD, RUB, UAH, KZT.
+function parseSteamAmount(item) {
+  const m = /(\d+(?:\.\d+)?)\s*(USD|RUB|UAH|KZT)\b/i.exec(item || "");
+  if (!m) return null;
+  return { amount: Number(m[1]), currency: m[2].toUpperCase() };
 }
 
 const relaySteamOrderFazercards = async (order) => {
@@ -636,14 +641,15 @@ const relaySteamOrderFazercards = async (order) => {
     console.error(`[fazercards] Order #${order.id} missing Steam login -- skipping relay`);
     return { ok: false, reason: "missing_ids" };
   }
-  const usdAmount = parseSteamUsdAmount(order.item);
-  if (usdAmount == null) {
-    console.error(`[fazercards] Order #${order.id}: couldn't parse Steam USD amount from "${order.item}"`);
+  const parsed = parseSteamAmount(order.item);
+  if (!parsed) {
+    console.error(`[fazercards] Order #${order.id}: couldn't parse Steam currency/amount from "${order.item}"`);
     return { ok: false, reason: "unparseable_item" };
   }
+  const { amount, currency } = parsed;
   try {
-    const result = await buySteamTopup(order.game_id, "USD", usdAmount, `monkeytopup-order-${order.id}`);
-    console.log(`[fazercards] Order #${order.id} -> Steam top-up order ${result.order && result.order.id} ($${usdAmount})`);
+    const result = await buySteamTopup(order.game_id, currency, amount, `monkeytopup-order-${order.id}`);
+    console.log(`[fazercards] Order #${order.id} -> Steam top-up order ${result.order && result.order.id} (${amount} ${currency})`);
     return { ok: true, fazercardsOrder: result.order };
   } catch (err) {
     console.error(`[fazercards] Steam order #${order.id} failed: ${err.message}`);
