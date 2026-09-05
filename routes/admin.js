@@ -383,14 +383,27 @@ router.post("/adjust-balance", async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const userRes = await client.query(
-      `SELECT ${balanceColumn} FROM users WHERE telegram_id = $1 FOR UPDATE`,
-      [targetTelegramId]
-    );
+
+    // Accepts either a numeric Telegram ID or a Telegram @username, same
+    // lookup rule as set-reseller/set-banned above.
+    const isNumericId = /^\d+$/.test(String(targetTelegramId).trim());
+    const userRes = isNumericId
+      ? await client.query(`SELECT telegram_id, ${balanceColumn} FROM users WHERE telegram_id = $1 FOR UPDATE`, [
+          targetTelegramId,
+        ])
+      : await client.query(
+          `SELECT telegram_id, ${balanceColumn} FROM users WHERE username ILIKE $1 FOR UPDATE`,
+          [String(targetTelegramId).trim().replace(/^@/, "")]
+        );
     if (userRes.rows.length === 0) {
       await client.query("ROLLBACK");
-      return res.status(404).json({ error: "User not found — they need to have opened the app at least once" });
+      return res.status(404).json({
+        error: isNumericId
+          ? "User not found — they need to have opened the app at least once"
+          : "Username not found — check the spelling, or they need to have opened the app at least once (username is only known once they've visited)",
+      });
     }
+    const resolvedTelegramId = userRes.rows[0].telegram_id;
     const currentBalance = Number(userRes.rows[0][balanceColumn]);
     const newBalance = currentBalance + delta;
     if (newBalance < 0) {
@@ -398,16 +411,16 @@ router.post("/adjust-balance", async (req, res) => {
       return res.status(400).json({ error: `Balance မလုံလောက်ပါ (လက်ရှိ: ${currentBalance})` });
     }
 
-    await client.query(`UPDATE users SET ${balanceColumn} = $1 WHERE telegram_id = $2`, [newBalance, targetTelegramId]);
+    await client.query(`UPDATE users SET ${balanceColumn} = $1 WHERE telegram_id = $2`, [newBalance, resolvedTelegramId]);
 
     await client.query(`INSERT INTO messages (telegram_id, text, icon) VALUES ($1, $2, $3)`, [
-      targetTelegramId,
+      resolvedTelegramId,
       `Admin မှ သင့် balance ကို ${delta > 0 ? "+" : ""}${delta} ${currency.toUpperCase()} ပြင်ဆင်ပေးလိုက်ပါသည်${reason ? ` (${reason})` : ""}။ လက်ရှိ balance: ${newBalance} ${currency.toUpperCase()}`,
       "🛠️",
     ]);
 
     await client.query("COMMIT");
-    res.json({ ok: true, telegramId: targetTelegramId, currency, previousBalance: currentBalance, newBalance });
+    res.json({ ok: true, telegramId: resolvedTelegramId, currency, previousBalance: currentBalance, newBalance });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error(err);
