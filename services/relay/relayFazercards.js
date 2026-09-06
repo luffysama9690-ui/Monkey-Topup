@@ -415,15 +415,30 @@ async function relayViaFazercards(order, opts) {
     const offer = findOfferForItem(offersRes.offers, itemName, overrideKey);
     const fields = buildFields(offersRes.fields || [], order);
 
-    const result = await createTopupOrder({
-      categoryId,
-      offerId: offer.offer_id,
-      fields,
-      idempotencyKey: `monkeytopup-order-${order.id}`,
-    });
+    // Bug fixed 2569-09-06: FazerCards' /topups/order has no "quantity"
+    // field at all -- one call always delivers exactly one unit. This
+    // used to call it once regardless of order.qty, so a customer buying
+    // e.g. 2x Weekly Pass was charged for 2 but FazerCards only ever
+    // delivered 1. Now it places the order order.qty times, each with its
+    // own idempotency key suffix so a retry of unit 1 can't accidentally
+    // dedupe against unit 2 (or vice versa) -- they're deliberately
+    // different purchases, not retries of the same one.
+    const qty = order.qty && order.qty > 0 ? order.qty : 1;
+    const fazercardsOrders = [];
+    for (let i = 1; i <= qty; i++) {
+      const result = await createTopupOrder({
+        categoryId,
+        offerId: offer.offer_id,
+        fields,
+        idempotencyKey: `monkeytopup-order-${order.id}-${i}`,
+      });
+      fazercardsOrders.push(result.order);
+    }
 
-    console.log(`[fazercards] Order #${order.id} -> FazerCards order ${result.order && result.order.id} (${offer.name}, $${offer.price_usd})`);
-    return { ok: true, fazercardsOrder: result.order, offer };
+    console.log(
+      `[fazercards] Order #${order.id} -> ${qty}x FazerCards order(s) ${fazercardsOrders.map((o) => o && o.id).join(", ")} (${offer.name}, $${offer.price_usd} each)`
+    );
+    return { ok: true, fazercardsOrder: fazercardsOrders[0], fazercardsOrders, offer };
   } catch (err) {
     console.error(`[fazercards] Order #${order.id} failed: ${err.message}`);
     return { ok: false, reason: "relay_failed", error: err.message };

@@ -252,7 +252,12 @@ router.post("/", async (req, res) => {
         let profit = null;
         try {
           const usdToCurrency = order.currency === "mmk" ? 4193 : 33.03; // same rate used across the pricing sheets
-          const costInOrderCurrency = parseFloat(succeeded.offer.price_usd) * usdToCurrency;
+          // order.price is the TOTAL the customer paid (unit price × qty --
+          // see the frontend's total calc), but offer.price_usd is the
+          // FazerCards cost of a single unit, so it has to be multiplied
+          // by qty too or profit comes out overstated for qty > 1 orders
+          // (bug fixed alongside the qty-relay fix above, 2569-09-06).
+          const costInOrderCurrency = parseFloat(succeeded.offer.price_usd) * usdToCurrency * (order.qty || 1);
           profit = Math.round(order.price - costInOrderCurrency);
         } catch (err) {
           console.error(`[relay] Order #${order.id}: failed to compute profit: ${err.message}`);
