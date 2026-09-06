@@ -44,7 +44,7 @@ const WELCOME_TEXT = "🐒 <b>Monkey Topup</b>\n\nအောက်က menu ထဲ
 const DEPOSIT_ACCOUNTS_TEXT =
   `💰 <b>Deposit</b>\n\n` +
   `🇲🇲 <b>MMK</b>\n` +
-  `• KPay: <code>09789565215</code> (Shine Wanna Oo)\n` +
+  `• KPay: <code>09253847784</code> (Sandar Nyein)\n` +
   `• WavePay: လက်ရှိအချိန်တွင် မရရှိသေးပါ\n\n` +
   `🇹🇭 <b>THB</b>\n` +
   `• K Bank: <code>1588869616</code> (Myant Ko Ko Khaing)\n` +
