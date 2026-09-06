@@ -103,3 +103,11 @@ END $$;
 -- suspended" screen instead of the shop. Safe to re-run.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_reason TEXT;
+
+-- Changed 2569-09-06: Lucky Spin used to be a flat 24h-cooldown freebie for
+-- everyone. Now it's earned -- 1 spin credit per completed order (wallet
+-- orders at creation, transfer orders once an admin approves them; see
+-- routes/orders.js and the PATCH /admin/orders/:id/status handler), and
+-- users who've never ordered get none. last_spin_at is kept only for
+-- display/history, no longer for gating.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS spin_credits INTEGER NOT NULL DEFAULT 0;

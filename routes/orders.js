@@ -108,6 +108,13 @@ router.post("/", async (req, res) => {
       [telegramId, game, item, gameId || null, serverId || null, qty || 1, price, currency, screenshotUrl || null, payMethod || null]
     );
 
+    // This INSERT always lands as 'success' immediately (wallet orders
+    // aren't a "pending -> approved" flow like transfer ones are), so award
+    // the spin credit for it right here. Transfer-paid orders start
+    // 'pending' and earn their credit later, when an admin approves them
+    // (see PATCH /admin/orders/:id/status).
+    await client.query("UPDATE users SET spin_credits = spin_credits + 1 WHERE telegram_id = $1", [telegramId]);
+
     await client.query(
       `INSERT INTO messages (telegram_id, text, icon)
        VALUES ($1, $2, '🛒')`,

@@ -138,6 +138,12 @@ router.patch("/orders/:id/status", async (req, res) => {
       return res.status(400).json({ error: "Order already processed" });
     }
     await client.query("UPDATE orders SET status = $1 WHERE id = $2", [status, req.params.id]);
+    // Same spin-credit rule as the main order-creation path in
+    // routes/orders.js -- 1 credit per order that reaches 'success',
+    // wherever in the flow that happens.
+    if (status === "success") {
+      await client.query("UPDATE users SET spin_credits = spin_credits + 1 WHERE telegram_id = $1", [order.telegram_id]);
+    }
     await client.query(
       `INSERT INTO messages (telegram_id, text, icon) VALUES ($1, $2, $3)`,
       [
@@ -506,8 +512,11 @@ router.get("/user-counts", async (req, res) => {
 
 // POST /api/admin/reset-spin
 // body: { telegramId, targetTelegramId }
-// Clears a user's last_spin_at so they can use the Lucky Spin (ကံစမ်းမဲ)
-// again immediately, instead of waiting for the normal 24h cooldown.
+// Grants a user one extra Lucky Spin (ကံစမ်းမဲ) credit -- e.g. as a manual
+// goodwill gesture, independent of whether they've got an order-earned one
+// pending. Since spins are now earned per completed order (see
+// routes/spin.js) rather than gated by a 24h cooldown, this just adds 1 to
+// spin_credits instead of clearing a cooldown timestamp.
 router.post("/reset-spin", async (req, res) => {
   const { telegramId, targetTelegramId } = req.body;
   if (!isAdmin(telegramId)) {
@@ -518,13 +527,13 @@ router.post("/reset-spin", async (req, res) => {
   }
   try {
     const result = await pool.query(
-      "UPDATE users SET last_spin_at = NULL WHERE telegram_id = $1 RETURNING telegram_id",
+      "UPDATE users SET spin_credits = spin_credits + 1 WHERE telegram_id = $1 RETURNING telegram_id, spin_credits",
       [targetTelegramId]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "User not found — they need to have opened the app at least once" });
     }
-    res.json({ ok: true, telegramId: targetTelegramId });
+    res.json({ ok: true, telegramId: targetTelegramId, spinCredits: result.rows[0].spin_credits });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to reset spin" });
