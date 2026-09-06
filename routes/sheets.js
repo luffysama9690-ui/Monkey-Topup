@@ -96,8 +96,9 @@ const SHEET_HEADERS = {
     "Currency",
     "Pay Method",
     "Status",
-    "Profit",
-    "FazerCards Balance (USD)",
+    "Profit MMK",
+    "Profit THB",
+    "Cost",
   ],
   Deposits: ["Time", "Deposit ID", "Telegram ID", "Amount", "Currency", "Status"],
 };
@@ -199,7 +200,14 @@ function updateOrderStatus(id, status) {
 // fills in M (profit) and N (FazerCards balance) in one write. Silently
 // no-ops if Sheets isn't configured or the row can't be found — this is
 // bookkeeping, never something that should throw and break order flow.
-async function updateOrderProfitAndBalance(id, profit, fundBalanceUsd) {
+// `currency` decides which of the two Profit columns gets the value --
+// Profit MMK (M) for MMK orders, Profit THB (N) for THB orders -- the
+// other one is left blank rather than also getting a copy, so it's clear
+// at a glance which currency an order's profit is actually in without
+// needing to check column J too. fundBalanceUsd goes in Cost (O) either
+// way (see the note on that column's actual meaning where this is called
+// from in routes/orders.js).
+async function updateOrderProfitAndBalance(id, profit, fundBalanceUsd, currency) {
   const sheetId = process.env.GOOGLE_SHEET_ID;
   const sheets = getSheetsClient();
   if (!sheets || !sheetId) {
@@ -220,14 +228,16 @@ async function updateOrderProfitAndBalance(id, profit, fundBalanceUsd) {
     }
 
     const rowNumber = rowIndex + 1;
+    const profitMmk = currency === "mmk" ? profit : "";
+    const profitThb = currency === "thb" ? profit : "";
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `Orders!M${rowNumber}:N${rowNumber}`,
+      range: `Orders!M${rowNumber}:O${rowNumber}`,
       valueInputOption: "USER_ENTERED",
       // fundBalanceUsd can be null (balance lookup failed/wasn't reached) --
       // send an empty string rather than JS null, which some Sheets API
       // client versions reject outright for a values[][] cell.
-      requestBody: { values: [[profit, fundBalanceUsd ?? ""]] },
+      requestBody: { values: [[profitMmk, profitThb, fundBalanceUsd ?? ""]] },
     });
   } catch (err) {
     console.error("updateOrderProfitAndBalance failed:", err.message);

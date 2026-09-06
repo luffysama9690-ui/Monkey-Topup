@@ -277,7 +277,7 @@ router.post("/", async (req, res) => {
 
         if (profit != null) {
           try {
-            await updateOrderProfitAndBalance(order.id, profit, fundBalanceUsd);
+            await updateOrderProfitAndBalance(order.id, profit, fundBalanceUsd, order.currency);
           } catch (err) {
             console.error(`[relay] Order #${order.id}: failed to write profit/balance to sheet: ${err.message}`);
           }
