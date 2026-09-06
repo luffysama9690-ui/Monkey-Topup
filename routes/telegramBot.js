@@ -45,7 +45,7 @@ const DEPOSIT_ACCOUNTS_TEXT =
   `💰 <b>Deposit</b>\n\n` +
   `🇲🇲 <b>MMK</b>\n` +
   `• KPay: <code>09253847784</code> (Sandar Nyein)\n` +
-  `• WavePay: လက်ရှိအချိန်တွင် မရရှိသေးပါ\n\n` +
+  `• WavePay: <code>09253847784</code> (Sandar Nyein)\n\n` +
   `🇹🇭 <b>THB</b>\n` +
   `• K Bank: <code>1588869616</code> (Myant Ko Ko Khaing)\n` +
   `• TrueMoney: <code>0617238353</code> (Myant Ko Ko Khaing)\n\n` +
