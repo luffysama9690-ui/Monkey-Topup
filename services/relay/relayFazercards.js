@@ -453,11 +453,83 @@ function relayRegionSplitGame(order, game) {
     console.error(`[fazercards] Order #${order.id}: ${game} item "${order.item}" has no region prefix FazerCards covers -- can't relay (maybe RU, which has no category_id yet)`);
     return Promise.resolve({ ok: false, reason: "unmapped_item" });
   }
+
+  // Some Global diamond amounts we sell (matching what other MLBB resellers
+  // advertise -- 343, 514, 600, 878, 963, 1049, 1135, 1412) aren't a single
+  // FazerCards offer; they're two or three confirmed offers added together
+  // (e.g. 343 = 86 + 257). ML_GLOBAL_DIAMOND_COMBOS lists those; anything
+  // not in it goes through the normal single-offer path below unchanged.
+  const bareAmount = parseInt(resolved.bareItem, 10);
+  if (game === "Mobile Legends" && resolved.region === "Global" && ML_GLOBAL_DIAMOND_COMBOS[bareAmount]) {
+    return relayComboOrder(order, resolved.categoryId, ML_GLOBAL_DIAMOND_COMBOS[bareAmount]);
+  }
+
   return relayViaFazercards(order, {
     categoryId: resolved.categoryId,
     itemName: resolved.bareItem,
     overrideKey: `${game}:${resolved.region}`,
   });
+}
+
+// See the comment above relayRegionSplitGame's combo check -- component
+// amounts must each be a real, confirmed FazerCards Global offer name
+// ("86 Diamonds", "257 Diamonds", etc.), verified 2569-09-09.
+const ML_GLOBAL_DIAMOND_COMBOS = {
+  343: [86, 257],
+  514: [257, 257],
+  600: [86, 257, 257],
+  878: [172, 706],
+  963: [257, 706],
+  1049: [86, 257, 706],
+  1135: [429, 706],
+  1412: [706, 706],
+};
+
+// Places one FazerCards order per component amount (e.g. 343 Diamonds ->
+// an 86-order + a 257-order), order.qty times over if the customer bought
+// more than one. All components across all qty repeats land in the same
+// player account, so from the customer's side it's indistinguishable from
+// a single 343-diamond delivery -- they just get it as several deposits.
+// Idempotency keys are per (component, repeat) so a retry of the whole
+// order can't double-charge any individual piece.
+async function relayComboOrder(order, categoryId, componentAmounts) {
+  try {
+    const offersRes = await getOffers(categoryId);
+    const fields = buildFields(offersRes.fields || [], order);
+    const qty = order.qty && order.qty > 0 ? order.qty : 1;
+
+    const fazercardsOrders = [];
+    let totalUsd = 0;
+    for (let rep = 1; rep <= qty; rep++) {
+      for (const amount of componentAmounts) {
+        const offer = findOfferForItem(offersRes.offers, `${amount} Diamonds`);
+        const result = await createTopupOrder({
+          categoryId,
+          offerId: offer.offer_id,
+          fields,
+          idempotencyKey: `monkeytopup-order-${order.id}-combo-${amount}-${rep}`,
+        });
+        fazercardsOrders.push(result.order);
+        totalUsd += parseFloat(offer.price_usd);
+      }
+    }
+
+    console.log(
+      `[fazercards] Order #${order.id} -> combo (${componentAmounts.join("+")}) x${qty} -> ${fazercardsOrders.length} FazerCards order(s), $${totalUsd.toFixed(4)} total`
+    );
+    // offer.price_usd downstream code reads is the TOTAL for the whole
+    // order (all components, all qty repeats) -- not a single component's
+    // price -- since that's what profit math in routes/orders.js needs.
+    return {
+      ok: true,
+      fazercardsOrder: fazercardsOrders[0],
+      fazercardsOrders,
+      offer: { price_usd: String(totalUsd), name: `Combo (${componentAmounts.join("+")}) x${qty}` },
+    };
+  } catch (err) {
+    console.error(`[fazercards] Order #${order.id} combo relay failed: ${err.message}`);
+    return { ok: false, reason: "relay_failed", error: err.message };
+  }
 }
 
 const relayMlOrderFazercards = (order) => relayRegionSplitGame(order, "Mobile Legends");
