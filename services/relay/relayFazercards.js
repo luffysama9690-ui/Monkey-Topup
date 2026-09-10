@@ -307,22 +307,11 @@ function buildFields(fieldsSchema, order) {
  *   { checked: true, valid: false }                     -- FazerCards says this ID/Server doesn't exist
  *   { checked: true, valid: null, error }               -- couldn't check (network/API issue) -- caller should fail OPEN, just log it
  */
-async function validateGamePlayerId(game, gameId, serverId, item) {
-  // Steam doesn't go through the /topups family, so it needs its own path:
-  // FazerCards' check-login call tells us up front whether this Steam
-  // account can actually be refilled, before we touch the customer's
-  // wallet balance.
-  if (game === "Steam") {
-    if (!gameId) return { checked: false };
-    try {
-      const result = await checkSteamLogin(gameId);
-      return { checked: true, valid: !!result.can_refill };
-    } catch (err) {
-      console.error(`[fazercards] Steam login check failed: ${err.message}`);
-      return { checked: false, valid: null };
-    }
-  }
-
+// Shared by validateGamePlayerId() and lookupOfferCost() below -- the
+// full game -> FazerCards category_id mapping, extracted so a cost
+// lookup (for logging profit on a manually-fulfilled order, see
+// telegramBot.js's "Done" button) doesn't have to duplicate this list.
+function resolveCategoryIdForGame(game, item) {
   let categoryId;
   if (game === "PUBG Mobile") {
     categoryId = CATEGORY_IDS.PUBG_AUTO;
@@ -387,6 +376,48 @@ async function validateGamePlayerId(game, gameId, serverId, item) {
     const resolved = resolveRegionCategory(game, item);
     categoryId = resolved ? resolved.categoryId : undefined;
   }
+  return categoryId;
+}
+
+// Looks up a game/item's true FazerCards cost (USD) without placing an
+// order or needing a player id -- used to log profit for orders that
+// were fulfilled manually after auto-relay failed (the "Done" button),
+// which otherwise never get a profit figure written to the Orders
+// sheet. Best-effort: returns null on anything it can't resolve, same
+// as a relay failure would -- the caller just leaves the Sheet's
+// profit cell blank in that case, same as today.
+async function lookupOfferCost(game, item) {
+  const categoryId = resolveCategoryIdForGame(game, item);
+  if (!categoryId) return null;
+  try {
+    const { offers } = await getOffers(categoryId);
+    const resolved = resolveRegionCategory(game, item);
+    const bareItem = resolved ? resolved.bareItem : item;
+    const offer = findOfferForItem(offers, bareItem);
+    return { priceUsd: parseFloat(offer.price_usd) };
+  } catch (err) {
+    console.error(`[fazercards] lookupOfferCost failed for ${game} "${item}": ${err.message}`);
+    return null;
+  }
+}
+
+async function validateGamePlayerId(game, gameId, serverId, item) {
+  // Steam doesn't go through the /topups family, so it needs its own path:
+  // FazerCards' check-login call tells us up front whether this Steam
+  // account can actually be refilled, before we touch the customer's
+  // wallet balance.
+  if (game === "Steam") {
+    if (!gameId) return { checked: false };
+    try {
+      const result = await checkSteamLogin(gameId);
+      return { checked: true, valid: !!result.can_refill };
+    } catch (err) {
+      console.error(`[fazercards] Steam login check failed: ${err.message}`);
+      return { checked: false, valid: null };
+    }
+  }
+
+  const categoryId = resolveCategoryIdForGame(game, item);
   if (!categoryId || !gameId) return { checked: false };
 
   try {
@@ -918,6 +949,7 @@ function isAutoFulfilled(game, item) {
 
 module.exports = {
   CATEGORY_IDS,
+  lookupOfferCost,
   relayMlOrderFazercards,
   relayMcOrderFazercards,
   relayPubgOrderFazercards,

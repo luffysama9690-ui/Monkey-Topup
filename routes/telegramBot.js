@@ -13,6 +13,8 @@
 
 const express = require("express");
 const pool = require("../db");
+const { lookupOfferCost } = require("../services/relay/relayFazercards");
+const { updateOrderProfitAndBalance } = require("./sheets");
 const {
   sendTelegramMessage,
   answerCallbackQuery,
@@ -157,6 +159,26 @@ router.post("/webhook", async (req, res) => {
       const order = orderRes.rows[0];
 
       await sendOrderReceipt(order);
+
+      // This order's auto-relay failed earlier (that's the only way the
+      // "Done" button exists at all -- see routes/telegram.js), so it
+      // never got a profit figure logged to the Orders sheet the way a
+      // successful auto-relay does inline. Best-effort catch-up: look up
+      // what this item would have cost via FazerCards and log profit off
+      // that, same margin math as routes/orders.js. If the lookup also
+      // fails (e.g. FazerCards genuinely doesn't carry this item), the
+      // sheet's profit cell is left blank, same as before this existed.
+      try {
+        const cost = await lookupOfferCost(order.game, order.item);
+        if (cost) {
+          const usdToCurrency = order.currency === "mmk" ? 4193 : 33.03;
+          const costInOrderCurrency = cost.priceUsd * usdToCurrency * (order.qty || 1);
+          const profit = Math.round(order.price - costInOrderCurrency);
+          await updateOrderProfitAndBalance(order.id, profit, null, order.currency);
+        }
+      } catch (err) {
+        console.error(`[telegramBot] Order #${order.id}: failed to log profit after manual Done: ${err.message}`);
+      }
 
       // Remove the button so it can't be pressed twice, and let the admin
       // know it went through.
