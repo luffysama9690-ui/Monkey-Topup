@@ -534,7 +534,13 @@ async function relayComboOrder(order, categoryId, componentAmounts) {
     const qty = order.qty && order.qty > 0 ? order.qty : 1;
 
     const fazercardsOrders = [];
-    let totalUsd = 0;
+    // Per-unit cost (one repetition of the combo) -- kept separate from the
+    // qty loop below on purpose. routes/orders.js's profit math multiplies
+    // offer.price_usd by order.qty itself, same as it does for a normal
+    // (non-combo) relay's single-offer price -- if this were the
+    // qty-multiplied total instead, that multiplication would double-count
+    // qty and understate profit for any combo order with qty > 1.
+    let perUnitUsd = 0;
     for (let rep = 1; rep <= qty; rep++) {
       for (const amount of componentAmounts) {
         const offer = findOfferForItem(offersRes.offers, `${amount} Diamonds`);
@@ -545,21 +551,18 @@ async function relayComboOrder(order, categoryId, componentAmounts) {
           idempotencyKey: `monkeytopup-order-${order.id}-combo-${amount}-${rep}`,
         });
         fazercardsOrders.push(result.order);
-        totalUsd += parseFloat(offer.price_usd);
+        if (rep === 1) perUnitUsd += parseFloat(offer.price_usd);
       }
     }
 
     console.log(
-      `[fazercards] Order #${order.id} -> combo (${componentAmounts.join("+")}) x${qty} -> ${fazercardsOrders.length} FazerCards order(s), $${totalUsd.toFixed(4)} total`
+      `[fazercards] Order #${order.id} -> combo (${componentAmounts.join("+")}) x${qty} -> ${fazercardsOrders.length} FazerCards order(s), $${perUnitUsd.toFixed(4)} per unit`
     );
-    // offer.price_usd downstream code reads is the TOTAL for the whole
-    // order (all components, all qty repeats) -- not a single component's
-    // price -- since that's what profit math in routes/orders.js needs.
     return {
       ok: true,
       fazercardsOrder: fazercardsOrders[0],
       fazercardsOrders,
-      offer: { price_usd: String(totalUsd), name: `Combo (${componentAmounts.join("+")}) x${qty}` },
+      offer: { price_usd: String(perUnitUsd), name: `Combo (${componentAmounts.join("+")})` },
     };
   } catch (err) {
     console.error(`[fazercards] Order #${order.id} combo relay failed: ${err.message}`);
