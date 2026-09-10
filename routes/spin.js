@@ -8,6 +8,7 @@
 // add up to any particular number, they're just relative.
 const express = require("express");
 const pool = require("../db");
+const { logSpin } = require("./sheets");
 
 const router = express.Router();
 
@@ -99,6 +100,7 @@ router.post("/", async (req, res) => {
     ]);
 
     await client.query("COMMIT");
+    logSpin({ telegramId, reward });
     res.json({ ok: true, reward, newBalance, nextSpinAt: nextSpinTime(new Date()) });
   } catch (err) {
     await client.query("ROLLBACK");

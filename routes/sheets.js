@@ -101,6 +101,7 @@ const SHEET_HEADERS = {
     "Cost",
   ],
   Deposits: ["Time", "Deposit ID", "Telegram ID", "Amount", "Currency", "Status"],
+  Spins: ["Time", "Telegram ID", "Reward", "Currency"],
 };
 
 async function ensureHeaderRow(sheets, sheetId, sheetName) {
@@ -144,6 +145,14 @@ function logOrder({ id, telegramId, game, item, gameId, serverId, qty, price, cu
 function logDeposit({ id, telegramId, amount, currency, status }) {
   const row = [new Date().toISOString(), id, telegramId, amount, (currency || "").toUpperCase(), status || ""];
   return appendRow("Deposits", row);
+}
+
+// One row per Lucky Spin payout, into the "Spins" tab -- so spin payouts
+// show up as a trackable expense alongside Orders/Deposits, instead of
+// only ever existing as a balance_mmk update with no paper trail.
+function logSpin({ telegramId, reward }) {
+  const row = [new Date().toISOString(), telegramId, reward, "MMK"];
+  return appendRow("Spins", row);
 }
 
 // Finds the row whose ID column (column B) matches `id`, and overwrites its
@@ -244,4 +253,4 @@ async function updateOrderProfitAndBalance(id, profit, fundBalanceUsd, currency)
   }
 }
 
-module.exports = { logOrder, logDeposit, updateDepositStatus, updateOrderStatus, updateOrderProfitAndBalance, getSheetsClient };
+module.exports = { logOrder, logDeposit, logSpin, updateDepositStatus, updateOrderStatus, updateOrderProfitAndBalance, getSheetsClient };
