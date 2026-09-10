@@ -205,6 +205,10 @@ const NAME_OVERRIDES = {
     "150 + 150 Diamonds (First Top-Up Bonus)": { priceUsd: 2.23 },
     "250 + 250 Diamonds (First Top-Up Bonus)": { priceUsd: 3.57 },
     "500 + 500 Diamonds (First Top-Up Bonus)": { priceUsd: 7.33 },
+    // Display renamed 2569-09-11 ("Monthly Epic Bundle") but FazerCards'
+    // real offer is still named "Monthly Elite Pack" -- map the new label
+    // back to it so the relay still finds the right offer.
+    "Monthly Epic Bundle": "Monthly Elite Pack",
   },
   "Mobile Legends:PH": {
     // Same "X + X" labeling caveat as Global, different USD costs for PH.
