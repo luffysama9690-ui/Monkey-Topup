@@ -1,8 +1,9 @@
 const express = require("express");
 const pool = require("../db");
-const { updateDepositStatus, updateOrderStatus } = require("./sheets");
+const { updateDepositStatus, updateOrderStatus, getSheetsClient } = require("./sheets");
 const { sendTelegramMessage, sendTelegramPhoto } = require("./telegram");
 const fazercards = require("../services/relay/fazercards");
+const { lookupOfferCost } = require("../services/relay/relayFazercards");
 
 const router = express.Router();
 
@@ -34,6 +35,79 @@ function isAdmin(telegramId) {
 // Used by the frontend to decide whether to show the Admin tab at all.
 router.get("/check", (req, res) => {
   res.json({ isAdmin: isAdmin(req.query.telegramId) });
+});
+
+// POST /api/admin/backfill-profit
+// body: { telegramId }
+// One-time maintenance tool: scans every row in the Orders sheet and, for
+// any with Status = "success" but both Profit MMK and Profit THB blank,
+// looks up that item's FazerCards cost (same lookupOfferCost() the "Done"
+// button fix uses) and writes profit in retroactively. Safe to run more
+// than once -- rows that already have a profit figure (in either
+// currency) are left untouched. Meant to be triggered manually from the
+// Admin Panel, not called automatically.
+router.post("/backfill-profit", async (req, res) => {
+  const { telegramId } = req.body;
+  if (!isAdmin(telegramId)) {
+    return res.status(403).json({ error: "Not authorized" });
+  }
+
+  const sheetId = process.env.GOOGLE_SHEET_ID;
+  const sheets = getSheetsClient();
+  if (!sheets || !sheetId) {
+    return res.status(500).json({ error: "Google Sheets is not configured" });
+  }
+
+  try {
+    // A:O covers every column logOrder()/updateOrderProfitAndBalance() ever
+    // write to -- id(B), game(D), item(E), qty(H), price(I), currency(J),
+    // status(L), profitMmk(M), profitThb(N).
+    const result = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: "Orders!A:O" });
+    const rows = result.data.values || [];
+
+    let updated = 0;
+    let skippedNoCost = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const status = row[11]; // L
+      const profitMmk = row[12]; // M
+      const profitThb = row[13]; // N
+      if (status !== "success") continue;
+      if (profitMmk || profitThb) continue; // already has a figure, don't touch
+
+      const orderId = row[1]; // B
+      const game = row[3]; // D
+      const item = row[4]; // E
+      const qty = parseInt(row[7], 10) || 1; // H
+      const price = parseFloat(row[8]); // I
+      const currency = (row[9] || "").toLowerCase(); // J
+      if (!game || !item || !price || !currency) continue;
+
+      const cost = await lookupOfferCost(game, item);
+      if (!cost) {
+        skippedNoCost++;
+        continue;
+      }
+      const usdToCurrency = currency === "mmk" ? 4193 : 33.03;
+      const costInOrderCurrency = cost.priceUsd * usdToCurrency * qty;
+      const profit = Math.round(price - costInOrderCurrency);
+
+      const rowNumber = i + 1;
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: currency === "mmk" ? `Orders!M${rowNumber}` : `Orders!N${rowNumber}`,
+        valueInputOption: "USER_ENTERED",
+        requestBody: { values: [[profit]] },
+      });
+      updated++;
+    }
+
+    res.json({ ok: true, updated, skippedNoCost, totalRowsScanned: rows.length });
+  } catch (err) {
+    console.error("backfill-profit failed:", err.message);
+    res.status(500).json({ error: "Backfill failed: " + err.message });
+  }
 });
 
 // GET /api/admin/pending?telegramId=...

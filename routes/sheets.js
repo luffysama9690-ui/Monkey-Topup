@@ -244,4 +244,4 @@ async function updateOrderProfitAndBalance(id, profit, fundBalanceUsd, currency)
   }
 }
 
-module.exports = { logOrder, logDeposit, updateDepositStatus, updateOrderStatus, updateOrderProfitAndBalance };
+module.exports = { logOrder, logDeposit, updateDepositStatus, updateOrderStatus, updateOrderProfitAndBalance, getSheetsClient };
