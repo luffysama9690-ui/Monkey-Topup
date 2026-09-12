@@ -17,7 +17,8 @@ function formatOrderReceipt(order) {
     `Qty: ${order.qty}\n` +
     `Price: ${order.price} ${String(order.currency).toUpperCase()}\n` +
     `Pay method: ${order.pay_method || "-"}\n\n` +
-    `ဝယ်ယူအားပေးမှုအတွက် ကျေးဇူးတင်ပါသည် 🙏`
+    `Order ဖြည့်ပြီးပါပြီ 🙏\n\n` +
+    `ဝယ်ယူအားပေးမှုအတွက် ကျေးဇူးတင်ပါသည်`
   );
 }
 
